@@ -1,0 +1,7 @@
+import React, {createContext, ReactNode, useContext, useState} from 'react';
+
+export type CustomerNotification = {id: string; title: string; message: string; createdAt: string; read: boolean};
+type Value = {notifications: CustomerNotification[]; unreadCount: number; addNotification: (title: string, message: string) => void; markAllRead: () => void; clearNotifications: () => void};
+const Context = createContext<Value | undefined>(undefined);
+export function NotificationsProvider({children}: {children: ReactNode}) {const [notifications, setNotifications] = useState<CustomerNotification[]>([{id: 'welcome', title: 'Welcome to Cartly', message: 'Deals, order updates and account messages will appear here.', createdAt: new Date().toISOString(), read: false}]); const addNotification = (title: string, message: string) => setNotifications(current => [{id: `notification-${Date.now()}`, title, message, createdAt: new Date().toISOString(), read: false}, ...current]); return <Context.Provider value={{notifications, unreadCount: notifications.filter(item => !item.read).length, addNotification, markAllRead: () => setNotifications(current => current.map(item => ({...item, read: true}))), clearNotifications: () => setNotifications([])}}>{children}</Context.Provider>;}
+export function useNotifications() {const value = useContext(Context); if (!value) throw new Error('useNotifications must be used inside NotificationsProvider'); return value;}

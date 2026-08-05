@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cartly — A-to-Z Technical Guide</title>
+  <style>
+    @page { size: A4; margin: 17mm 15mm 18mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #17212a; background: #fff; font: 10.2pt/1.52 "Segoe UI", Arial, sans-serif; }
+    h1, h2, h3, h4 { color: #101820; line-height: 1.2; page-break-after: avoid; }
+    h1 { font-size: 30pt; margin: 0 0 10px; }
+    h2 { font-size: 19pt; margin: 28px 0 11px; padding-bottom: 6px; border-bottom: 2px solid #ffb000; }
+    h3 { font-size: 14pt; margin: 21px 0 7px; }
+    h4 { font-size: 11pt; margin: 16px 0 5px; }
+    p { margin: 5px 0 10px; }
+    ul, ol { margin: 6px 0 12px 22px; padding: 0; }
+    li { margin: 3px 0; }
+    code { color: #a43d00; background: #f4f5f6; padding: 1px 4px; border-radius: 3px; font: 9pt Consolas, monospace; }
+    pre { overflow-wrap: anywhere; white-space: pre-wrap; background: #101820; color: #f8fafb; border-radius: 7px; padding: 11px 13px; font: 8.5pt/1.45 Consolas, monospace; page-break-inside: avoid; }
+    table { width: 100%; border-collapse: collapse; margin: 9px 0 16px; font-size: 8.7pt; page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+    th { background: #101820; color: #fff; text-align: left; }
+    th, td { border: 1px solid #d9dee2; padding: 6px 7px; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f8f9; }
+    a { color: #bd4700; text-decoration: none; }
+    .cover { min-height: 245mm; display: flex; flex-direction: column; justify-content: center; padding: 24mm 12mm; page-break-after: always; background: linear-gradient(145deg, #101820 0 61%, #ffb000 61% 67%, #f5f6f8 67%); color: #fff; }
+    .cover h1 { color: #fff; max-width: 620px; }
+    .cover .tag { color: #ffb000; font-size: 11pt; font-weight: 800; letter-spacing: 2px; }
+    .cover .subtitle { max-width: 560px; font-size: 14pt; color: #dbe2e7; }
+    .cover .meta { margin-top: 30px; color: #aebbc4; }
+    .notice { border-left: 4px solid #ffb000; background: #fff8e7; padding: 10px 12px; margin: 11px 0; page-break-inside: avoid; }
+    .warning { border-left-color: #c53d2d; background: #fff0ee; }
+    .good { border-left-color: #23835c; background: #edf8f3; }
+    .toc a { color: #17212a; }
+    .toc li { margin: 5px 0; }
+    .flow { background: #f3f5f6; border: 1px solid #d9dee2; border-radius: 7px; padding: 10px 12px; font: 9pt/1.65 Consolas, monospace; page-break-inside: avoid; }
+    .status-real { color: #116343; font-weight: 700; }
+    .status-local { color: #9b5900; font-weight: 700; }
+    .status-next { color: #a52a20; font-weight: 700; }
+    .page-break { page-break-before: always; }
+    .small { color: #64717a; font-size: 8.5pt; }
+    .footer-note { margin-top: 22px; padding-top: 8px; border-top: 1px solid #d9dee2; color: #68757e; font-size: 8pt; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="tag">CARTLY ENGINEERING HANDBOOK</div>
+    <h1>A-to-Z Technical Guide</h1>
+    <p class="subtitle">How the React Native shopping app, Express API, authentication, PostgreSQL database, catalogue, pages, state and development workflow work together.</p>
+    <p class="meta">Project: MyApp / Cartly<br>Edition: 5 August 2026<br>Environment: React Native Android + Node.js/Express + TypeScript + PostgreSQL + Prisma</p>
+  </section>
+
+  <h2 id="contents">Contents</h2>
+  <ol class="toc">
+    <li><a href="#overview">Project overview and present status</a></li>
+    <li><a href="#architecture">System architecture and request flow</a></li>
+    <li><a href="#structure">Folder structure and responsibilities</a></li>
+    <li><a href="#startup">How the app starts</a></li>
+    <li><a href="#navigation">Navigation and every mobile page</a></li>
+    <li><a href="#state">Contexts and application state</a></li>
+    <li><a href="#api-client">Shared API client and offline behavior</a></li>
+    <li><a href="#authentication">Registration, OTP, login and token flow</a></li>
+    <li><a href="#catalogue">Categories, products, search, variants and reviews</a></li>
+    <li><a href="#backend">Express backend architecture</a></li>
+    <li><a href="#database">PostgreSQL and Prisma data model</a></li>
+    <li><a href="#endpoints">Complete implemented API reference</a></li>
+    <li><a href="#images">Product image storage and upload</a></li>
+    <li><a href="#testing">Testing and validation</a></li>
+    <li><a href="#running">Run commands: USB and wireless</a></li>
+    <li><a href="#inspect">Inspecting users and stored data</a></li>
+    <li><a href="#troubleshooting">Troubleshooting common errors</a></li>
+    <li><a href="#security">Security decisions</a></li>
+    <li><a href="#remaining">What remains for a production ecommerce app</a></li>
+  </ol>
+
+  <h2 id="overview">1. Project overview and present status</h2>
+  <p>Cartly is a React Native retail application inspired by large marketplace apps. The mobile client provides the shopping interface; the Express server owns authentication and catalogue rules; PostgreSQL stores durable data; Prisma provides typed database access. The app is currently Android-tested, but its React Native structure also contains the standard iOS project.</p>
+  <table>
+    <tr><th>Area</th><th>Status</th><th>Meaning</th></tr>
+    <tr><td>Landing, navigation and customer screens</td><td class="status-real">Built</td><td>The pages and navigation routes exist and are interactive.</td></tr>
+    <tr><td>Authentication</td><td class="status-real">Backend connected</td><td>Registration, OTP verification, login, refresh, logout and password reset use PostgreSQL.</td></tr>
+    <tr><td>Catalogue</td><td class="status-real">Backend connected</td><td>Categories, products, search, filters, sorting, variants, stock, images, ratings and reviews come from APIs.</td></tr>
+    <tr><td>Profile and addresses</td><td class="status-real">Backend connected</td><td>Profile updates, password changes, account deletion and address management persist in PostgreSQL.</td></tr>
+    <tr><td>Cart, wishlist and orders</td><td class="status-local">Local state</td><td>The user experience exists, but data currently lives in React contexts and disappears after a full app reset.</td></tr>
+    <tr><td>Checkout, payment, returns and notifications</td><td class="status-local">UI/demo flow</td><td>Pages work as a prototype; server APIs and payment processing are still required.</td></tr>
+    <tr><td>Admin dashboard and production deployment</td><td class="status-next">Not built</td><td>Admin APIs/UI, cloud files, hosted database, monitoring and store release remain.</td></tr>
+  </table>
+  <div class="notice"><strong>Important:</strong> the database schema already models most future ecommerce entities. A table existing in Prisma does not mean its API is implemented. At this edition, authentication, catalogue, account and address modules are real server modules.</div>
+
+  <h2 id="architecture">2. System architecture and request flow</h2>
+  <div class="flow">Samsung Android phone
+  │ React Native screens and components
+  │ Context providers (auth, catalogue, cart, etc.)
+  │ apiClient: JSON + Bearer token + refresh/retry
+  ▼
+Express API on laptop, port 4000
+  │ Zod validation → middleware → service
+  │ Prisma Client through PostgreSQL adapter
+  ▼
+PostgreSQL 18, database: myapp, port 5432</div>
+  <p>During development, ADB reverse maps the phone’s <code>localhost:4000</code> to the laptop’s port 4000 and <code>localhost:8081</code> to Metro. This works over USB and Android Wireless Debugging. Therefore the source code can keep using <code>http://localhost:4000/api/v1</code> without hard-coding a changing Wi-Fi address.</p>
+  <h3>Typical product request</h3>
+  <div class="flow">CategoriesScreen
+  → useCatalogue().listProducts(filters)
+  → catalogueApi.products()
+  → apiGet('/products?...')
+  → Express catalogue route
+  → Zod query validation
+  → catalogueService.products()
+  → Prisma queries PostgreSQL
+  → JSON envelope
+  → API model mapped to mobile CatalogueProduct
+  → FlatList renders ProductCard</div>
+
+  <h2 id="structure">3. Folder structure and responsibilities</h2>
+  <table>
+    <tr><th>Path</th><th>Purpose</th></tr>
+    <tr><td><code>App.tsx</code></td><td>Creates global providers, offline banner, session loading and navigation.</td></tr>
+    <tr><td><code>src/navigation</code></td><td>Bottom tabs, root stack and strongly typed route parameters.</td></tr>
+    <tr><td><code>src/screens</code></td><td>Complete mobile pages: home, catalogue, product, checkout and account experiences.</td></tr>
+    <tr><td><code>components</code></td><td>Navbar, footer and reusable landing-page sections/product cards.</td></tr>
+    <tr><td><code>src/context</code></td><td>Global state providers for authentication, catalogue, cart, wishlist, checkout and account data.</td></tr>
+    <tr><td><code>src/services</code></td><td>API client, auth/catalogue API wrappers and encrypted token storage.</td></tr>
+    <tr><td><code>src/components/feedback</code></td><td>Shared loading button, error/retry screen and offline banner.</td></tr>
+    <tr><td><code>backend/src/app.ts</code></td><td>Express app configuration, security middleware, routes, health check and static uploads.</td></tr>
+    <tr><td><code>backend/src/modules</code></td><td>Feature modules. Currently <code>auth</code> and <code>catalogue</code>.</td></tr>
+    <tr><td><code>backend/src/lib</code></td><td>Prisma, password hashing, JWTs, OTPs, email and shared errors.</td></tr>
+    <tr><td><code>backend/prisma/schema.prisma</code></td><td>Database models, relations, enums, indexes and constraints.</td></tr>
+    <tr><td><code>backend/prisma/seed.ts</code></td><td>Idempotent development catalogue seed.</td></tr>
+    <tr><td><code>backend/uploads/products</code></td><td>Locally uploaded product images for development.</td></tr>
+  </table>
+
+  <h2 id="startup">4. How the app starts</h2>
+  <ol>
+    <li><code>index.js</code> imports <code>App.tsx</code> and registers it with React Native.</li>
+    <li><code>SafeAreaProvider</code> handles notches and system bars.</li>
+    <li><code>NetworkProvider</code> subscribes to NetInfo and shows the offline banner.</li>
+    <li><code>AuthProvider</code> reads encrypted tokens from Android Keystore through Keychain.</li>
+    <li>If tokens exist, the backend refresh endpoint rotates them and restores the user.</li>
+    <li><code>CatalogueProvider</code> loads categories and the initial popular product list.</li>
+    <li>Other providers expose local cart, checkout, orders, notifications, search, wishlist and address state.</li>
+    <li><code>NavigationContainer</code> renders the root navigator and initial Home tab.</li>
+  </ol>
+  <p>While the session is being restored, <code>AsyncStateView</code> displays a full-screen progress indicator. A network failure presents a retry action without deleting saved credentials.</p>
+
+  <h2 id="navigation">5. Navigation and every mobile page</h2>
+  <h3>Main bottom tabs</h3>
+  <table>
+    <tr><th>Page</th><th>What it does</th><th>Current data source</th></tr>
+    <tr><td>Home</td><td>Navbar, search, hero carousel, categories, deals, featured products, benefits and footer links.</td><td>Catalogue API + UI content</td></tr>
+    <tr><td>Categories</td><td>Server search, categories, price/rating/sale filters, sorting, product cards and empty/retry states.</td><td>Catalogue API</td></tr>
+    <tr><td>Cart</td><td>Quantity controls, removal, clear cart, coupon field, totals and checkout navigation.</td><td>Local CartContext</td></tr>
+    <tr><td>Account</td><td>Guest login/register entry or signed-in account dashboard and links.</td><td>Real auth user + local feature contexts</td></tr>
+  </table>
+  <h3>Shopping stack</h3>
+  <table>
+    <tr><th>Page</th><th>Behavior</th></tr>
+    <tr><td>Search Results</td><td>Sends the submitted query to the product API; shows suggestions from the loaded catalogue and stores local search history.</td></tr>
+    <tr><td>Product Details</td><td>Loads product, gallery, variants, stock, ratings, reviews and related products. Add to Cart/Buy Now continue into local cart/checkout.</td></tr>
+    <tr><td>Wishlist</td><td>Shows saved products, supports clear and opens details. Persistence API is pending.</td></tr>
+    <tr><td>Checkout</td><td>Collects delivery address and proceeds through shipping, payment and review.</td></tr>
+    <tr><td>Shipping Method</td><td>Selects the local delivery option.</td></tr>
+    <tr><td>Payment</td><td>Collects a payment selection for the demo flow. No gateway charge is performed.</td></tr>
+    <tr><td>Order Review</td><td>Reviews address, shipping, payment and totals before creating the local order.</td></tr>
+    <tr><td>Order Success</td><td>Displays order confirmation and routes back to shopping/orders.</td></tr>
+  </table>
+  <h3>Authentication and account stack</h3>
+  <table>
+    <tr><th>Page</th><th>Behavior</th></tr>
+    <tr><td>Login</td><td>Calls real login API, saves tokens and redirects to Account or Checkout.</td></tr>
+    <tr><td>Register</td><td>Validates fields, creates an unverified database user and requests OTP.</td></tr>
+    <tr><td>Verify OTP</td><td>Verifies email, receives tokens and signs the user in; supports rate-limited resend.</td></tr>
+    <tr><td>Forgot Password</td><td>Requests a reset OTP without revealing whether the email exists.</td></tr>
+    <tr><td>Reset Password</td><td>Consumes reset OTP, hashes the new password and revokes active refresh sessions.</td></tr>
+    <tr><td>Profile</td><td>Updates name/phone in PostgreSQL, changes password with session revocation, and supports password-confirmed account deletion.</td></tr>
+    <tr><td>Addresses</td><td>Authenticated PostgreSQL create/read/update/delete, default selection and automatic replacement default after deletion.</td></tr>
+    <tr><td>Orders / Details / Tracking</td><td>Local order history and status presentation.</td></tr>
+    <tr><td>Cancellation</td><td>Applies local eligibility and cancellation status.</td></tr>
+    <tr><td>Returns</td><td>Creates a local return request and refund-status presentation.</td></tr>
+    <tr><td>Notifications</td><td>Local inbox with mark-all-read and clear.</td></tr>
+    <tr><td>Help & Support</td><td>FAQs and demo support request/actions.</td></tr>
+    <tr><td>Privacy / Terms</td><td>Static legal content selected through one typed route.</td></tr>
+  </table>
+
+  <h2 id="state">6. Contexts and application state</h2>
+  <table>
+    <tr><th>Provider</th><th>Responsibilities</th><th>Persistence</th></tr>
+    <tr><td>AuthContext</td><td>User, pending registration, login/register/OTP/reset/logout and session restore.</td><td>Backend + encrypted tokens</td></tr>
+    <tr><td>CatalogueContext</td><td>Initial categories/products, retry, product cache, detail loading and server list function.</td><td>Backend PostgreSQL</td></tr>
+    <tr><td>NetworkContext</td><td>Online status and manual connectivity refresh.</td><td>Device network state</td></tr>
+    <tr><td>CartContext</td><td>Items, selections, quantities, coupon and totals.</td><td>Memory only</td></tr>
+    <tr><td>WishlistContext</td><td>Saved products, toggle and clear.</td><td>Memory only</td></tr>
+    <tr><td>CheckoutContext</td><td>Address form, shipping and payment selections.</td><td>Memory only</td></tr>
+    <tr><td>OrdersContext</td><td>Local order creation, lookup, cancellation and returns.</td><td>Memory only</td></tr>
+    <tr><td>AddressBookContext</td><td>Loads and mutates the authenticated user’s addresses and default selection.</td><td>Backend PostgreSQL</td></tr>
+    <tr><td>NotificationsContext</td><td>Local notifications, unread count, mark-read and clear.</td><td>Memory only</td></tr>
+    <tr><td>SearchContext</td><td>Recent searches.</td><td>Memory only</td></tr>
+  </table>
+  <p>Contexts prevent prop drilling: a deeply nested screen calls a hook such as <code>useCart()</code> instead of receiving cart functions through every parent. For server-backed modules, contexts also centralize caching and shared loading state.</p>
+
+  <h2 id="api-client">7. Shared API client and offline behavior</h2>
+  <p><code>src/services/apiClient.ts</code> is the single transport layer. Feature wrappers such as <code>authApi</code> and <code>catalogueApi</code> describe endpoints without repeating fetch/error/token code.</p>
+  <h3>Authenticated request lifecycle</h3>
+  <div class="flow">Read tokens from Keychain
+→ Attach Authorization: Bearer accessToken
+→ Send request
+→ If success: parse { success, data }
+→ If 401: use refreshToken once
+→ Store rotated token pair
+→ Retry original request once
+→ If refresh is invalid: clear tokens and sign out
+→ If refresh failed only due to network: keep tokens</div>
+  <p>A shared refresh promise prevents five simultaneous expired requests from creating five token rotations. API errors include HTTP status, backend error code and optional details. Network failures become a consistent <code>NETWORK_ERROR</code>.</p>
+  <p><code>ConnectivityBanner</code> uses <code>@react-native-community/netinfo</code>. It shows a global red banner when offline and offers Retry. <code>AsyncButton</code> provides spinner/disabled behavior; <code>AsyncStateView</code> provides full-page loading/error/retry behavior.</p>
+
+  <h2 id="authentication">8. Registration, OTP, login and token flow</h2>
+  <h3>Registration</h3>
+  <ol>
+    <li>The mobile app posts name, normalized email, ten-digit phone and password.</li>
+    <li>Zod requires valid input and an eight-character minimum password.</li>
+    <li>The server checks for an existing verified email.</li>
+    <li>Password hashing uses Node scrypt with a random salt; plaintext is never stored.</li>
+    <li>A random six-digit OTP is hashed and stored with expiry, purpose, attempts and consumed status.</li>
+    <li>SMTP sends the OTP. Without SMTP in development, it prints in the backend console.</li>
+    <li>Verification consumes the OTP, marks the email verified and issues an access/refresh token pair.</li>
+  </ol>
+  <h3>Login and session restoration</h3>
+  <p>Login verifies the scrypt hash and requires verified email. The short-lived JWT access token authorizes APIs; the longer refresh JWT is stored as a hash in PostgreSQL. The raw token pair is saved in Android Keystore via React Native Keychain. On refresh, the old database token is revoked and a new pair is issued. On logout, the refresh token is revoked and device credentials are cleared.</p>
+  <h3>Password reset</h3>
+  <p>The forgot-password response is deliberately generic to prevent email enumeration. A valid reset OTP changes the hash and revokes every active refresh token for that user.</p>
+  <div class="warning notice"><strong>Never inspect or recover plaintext passwords/OTPs:</strong> only secure hashes belong in PostgreSQL. Never paste database, SMTP or JWT secrets into chat, source code, screenshots or Git.</div>
+
+  <h2 id="catalogue">9. Categories, products, search, variants and reviews</h2>
+  <p>The seed creates 6 categories, 10 products, stock-aware variants, initial image URLs and 30 review rows. It is idempotent: rerunning it updates matching slugs/SKUs rather than duplicating them.</p>
+  <h3>Filtering and sorting</h3>
+  <p>The server first filters active products by query/category, includes ordered images and variants, calculates minimum/maximum price, total stock, average rating and review count, then applies price/rating/availability/sale filters and sorting. Finally it returns a page with total count, page count and <code>hasNextPage</code>.</p>
+  <p>Supported sort values are <code>popular</code>, <code>rating</code>, <code>price_asc</code>, <code>price_desc</code> and <code>newest</code>. Search checks name, description and slug case-insensitively. Category filtering supports the category itself and its immediate children.</p>
+  <h3>Mobile model mapping</h3>
+  <p><code>catalogueApi.ts</code> maps database DTOs to the UI’s <code>CatalogueProduct</code>. Decimal prices are already converted to numbers by the backend. Relative uploaded-image paths are converted to absolute server URLs. A deterministic color and first-letter fallback are generated if no image exists.</p>
+  <h3>Stock</h3>
+  <p>Each SKU variant has independent color, size, price, old price and stock. Product-level stock is the sum of variants, while <code>inStock</code> is true when at least one variant has stock. Product Details prevents Add to Cart/Buy Now for an unavailable selected variant. Final stock enforcement must also happen in the future cart/order backend.</p>
+  <h3>Reviews</h3>
+  <p>Review reads are public and paginated. Writes require an access token. The database unique constraint on <code>(userId, productId)</code> ensures one review per customer/product; the API uses upsert so resubmission edits it. The mobile details page currently displays server reviews. A review editor UI is still to be added.</p>
+
+  <h2 id="backend">10. Express backend architecture</h2>
+  <ol>
+    <li><code>server.ts</code> creates the HTTP server on <code>0.0.0.0:4000</code> and handles graceful shutdown.</li>
+    <li><code>app.ts</code> disables the Express signature and enables Helmet, CORS and the JSON body limit.</li>
+    <li><code>/uploads</code> serves development product files.</li>
+    <li><code>/api/health</code> verifies the API process.</li>
+    <li><code>/api/v1</code> mounts auth and catalogue routers.</li>
+    <li>Routes parse input with Zod, call services and return a standard JSON envelope.</li>
+    <li>Services contain business rules and Prisma operations.</li>
+    <li>The error handler converts Zod, application and upload errors into safe responses.</li>
+  </ol>
+  <h3>Response format</h3>
+  <pre>{
+  "success": true,
+  "data": { "...": "..." }
+}</pre>
+  <pre>{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed"
+  }
+}</pre>
+  <p><code>authenticate</code> validates Bearer JWTs and adds <code>request.auth</code>. <code>authorize('ADMIN')</code> protects image mutation. Authentication and OTP endpoints also use rate limiting.</p>
+
+  <h2 id="database">11. PostgreSQL and Prisma data model</h2>
+  <table>
+    <tr><th>Model</th><th>Main responsibility</th><th>Important constraints</th></tr>
+    <tr><td>User</td><td>Account, profile, role and email verification.</td><td>Unique email and phone; password hash only.</td></tr>
+    <tr><td>RefreshToken</td><td>Server-side refresh sessions.</td><td>Unique token hash, expiry and revocation.</td></tr>
+    <tr><td>VerificationCode</td><td>Email verification/password reset OTPs.</td><td>Purpose, attempts, expiry and consumed timestamp.</td></tr>
+    <tr><td>Address</td><td>Customer delivery addresses.</td><td>User relation and default flag.</td></tr>
+    <tr><td>Category</td><td>Catalogue hierarchy.</td><td>Unique slug; self parent/children relation.</td></tr>
+    <tr><td>Product</td><td>Core product copy and active status.</td><td>Unique slug and category relation.</td></tr>
+    <tr><td>ProductImage</td><td>Ordered product media.</td><td>Product relation and position.</td></tr>
+    <tr><td>ProductVariant</td><td>SKU, color, size, prices and inventory.</td><td>Unique SKU.</td></tr>
+    <tr><td>CartItem</td><td>Future persistent customer cart.</td><td>One user/variant row.</td></tr>
+    <tr><td>WishlistItem</td><td>Future persistent wishlist.</td><td>One user/product row.</td></tr>
+    <tr><td>Order</td><td>Order totals, status, payment and address snapshot.</td><td>Unique order number.</td></tr>
+    <tr><td>OrderItem</td><td>Purchased product snapshot.</td><td>Stores name/price/variant details at purchase time.</td></tr>
+    <tr><td>Review</td><td>Customer product rating and text.</td><td>One review per user/product.</td></tr>
+    <tr><td>Coupon</td><td>Future percentage/fixed discount rules.</td><td>Unique code and validity dates.</td></tr>
+    <tr><td>Notification</td><td>Future persistent inbox.</td><td>User/date index and read timestamp.</td></tr>
+    <tr><td>ReturnRequest</td><td>Future return/refund workflow.</td><td>Status and refund amount.</td></tr>
+  </table>
+  <p>Deletion cascades are used for user-owned session/OTP/cart/wishlist/review/notification data and product-owned images/variants. Order items store snapshots so historical purchases do not change when current product text or price changes.</p>
+
+  <h2 id="endpoints">12. Complete implemented API reference</h2>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr>
+    <tr><td>GET</td><td><code>/api/health</code></td><td>No</td><td>API process health.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/register</code></td><td>No</td><td>Create/pending account and send verification OTP.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/verify-email</code></td><td>No</td><td>Verify OTP and issue tokens.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/resend-email-otp</code></td><td>No</td><td>Rate-limited resend.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/login</code></td><td>No</td><td>Verify credentials and issue tokens.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/refresh</code></td><td>Refresh token body</td><td>Rotate session tokens.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/logout</code></td><td>Refresh token body</td><td>Revoke refresh session.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/forgot-password</code></td><td>No</td><td>Send reset OTP if account exists.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/auth/reset-password</code></td><td>No</td><td>Reset password and revoke sessions.</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/auth/me</code></td><td>Access token</td><td>Read current user.</td></tr>
+    <tr><td>PATCH</td><td><code>/api/v1/account/profile</code></td><td>Access token</td><td>Update name and phone.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/account/change-password</code></td><td>Access token</td><td>Verify current password, update hash and revoke sessions.</td></tr>
+    <tr><td>DELETE</td><td><code>/api/v1/account</code></td><td>Access token + password</td><td>Permanently delete customer data.</td></tr>
+    <tr><td>GET/POST</td><td><code>/api/v1/addresses</code></td><td>Access token</td><td>List or create owned addresses.</td></tr>
+    <tr><td>PATCH/DELETE</td><td><code>/api/v1/addresses/:addressId</code></td><td>Access token</td><td>Update or delete an owned address.</td></tr>
+    <tr><td>PATCH</td><td><code>/api/v1/addresses/:addressId/default</code></td><td>Access token</td><td>Atomically select one default address.</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/categories</code></td><td>No</td><td>Category tree and product counts.</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/products</code></td><td>No</td><td>Search/filter/sort/paginate products.</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/products/:id-or-slug</code></td><td>No</td><td>Product detail.</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/products/:id/related</code></td><td>No</td><td>Related products.</td></tr>
+    <tr><td>GET</td><td><code>/api/v1/products/:id/reviews</code></td><td>No</td><td>Paginated reviews.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/products/:id/reviews</code></td><td>Access token</td><td>Create/update own review.</td></tr>
+    <tr><td>POST</td><td><code>/api/v1/products/:id/images</code></td><td>Admin</td><td>Upload one image.</td></tr>
+    <tr><td>DELETE</td><td><code>/api/v1/products/:id/images/:imageId</code></td><td>Admin</td><td>Delete image row and local file.</td></tr>
+  </table>
+
+  <h2 id="images">13. Product image storage and upload</h2>
+  <p>Seed products use HTTPS image URLs. New local uploads use multipart field <code>image</code>, optional <code>alt</code> and optional <code>position</code>. Multer writes a randomized file name into <code>backend/uploads/products</code>. The server checks declared MIME type, 5 MB limit and binary signature for JPEG/PNG/WebP before creating the database row.</p>
+  <pre>POST /api/v1/products/p1/images
+Authorization: Bearer ADMIN_ACCESS_TOKEN
+Content-Type: multipart/form-data
+
+image    = headphones.png
+alt      = Headphones front view
+position = 1</pre>
+  <p>The returned path looks like <code>/uploads/products/uuid.png</code>. The mobile mapper prefixes the server origin automatically. Local uploads are ignored by Git. For production, replace filesystem storage with S3, Cloudinary or R2 and store the resulting CDN URL.</p>
+
+  <h2 id="testing">14. Testing and validation</h2>
+  <table>
+    <tr><th>Command</th><th>Coverage</th><th>Current result</th></tr>
+    <tr><td><code>npm run lint</code></td><td>Mobile ESLint rules.</td><td>Passing</td></tr>
+    <tr><td><code>npx tsc --noEmit</code></td><td>Mobile TypeScript.</td><td>Passing</td></tr>
+    <tr><td><code>npm test -- --runInBand</code></td><td>Mobile render and API-client token behavior.</td><td>2 suites / 4 tests passing</td></tr>
+    <tr><td><code>npm run typecheck</code> in backend</td><td>Backend TypeScript.</td><td>Passing</td></tr>
+    <tr><td><code>npm test</code> in backend</td><td>Health and real PostgreSQL catalogue integration tests.</td><td>2 suites / 8 tests passing</td></tr>
+    <tr><td><code>npm run build</code> in backend</td><td>Production TypeScript compilation.</td><td>Passing</td></tr>
+    <tr><td><code>gradlew app:assembleDebug</code></td><td>Android compile and native autolinking.</td><td>Passing</td></tr>
+  </table>
+  <p>The API-client tests verify Bearer attachment, refresh/retry, token rotation and preserving tokens during network failure. Catalogue tests verify category counts, filtering/sorting/pagination, detail/variants/images, related products, reviews, invalid queries, authenticated review writing, and admin upload/delete.</p>
+
+  <h2 id="running">15. Run commands: USB and wireless</h2>
+  <h3>Prerequisites</h3>
+  <ul><li>PostgreSQL service <code>postgresql-x64-18</code> running.</li><li>Database <code>myapp</code> exists and <code>backend/.env</code> contains the private connection URL/secrets.</li><li>Phone has Developer Options and debugging enabled.</li></ul>
+  <h3>Terminal 1 — backend</h3>
+  <pre>cd C:\Users\Preet\OneDrive\Desktop\MyApp\backend
+npm run dev</pre>
+  <h3>Terminal 2 — Metro</h3>
+  <pre>cd C:\Users\Preet\OneDrive\Desktop\MyApp
+npm start</pre>
+  <h3>Terminal 3 — phone and app</h3>
+  <pre>adb devices
+npm run android:usb</pre>
+  <p><code>android:usb</code> forwards ports 8081 and 4000, then builds/launches Android. Despite its name, ADB reverse also works through Wireless Debugging.</p>
+  <h3>Wireless pairing</h3>
+  <pre>adb pair PHONE_IP:PAIRING_PORT
+adb connect PHONE_IP:DEBUG_PORT
+adb devices
+npm run android:usb</pre>
+  <p>The pairing port and debugging port are different and can change after phone restarts. Phone and laptop must share the same Wi-Fi.</p>
+  <h3>Reset Metro cache</h3>
+  <pre>npm start -- --reset-cache</pre>
+  <h3>Full Android clean</h3>
+  <pre>cd android
+.\gradlew.bat clean
+cd ..
+npm start -- --reset-cache</pre>
+  <h3>Clear all app data (destructive)</h3>
+  <pre>adb shell pm clear com.myapp</pre>
+  <p>This removes login tokens and all local state from the phone.</p>
+
+  <h2 id="inspect">16. Inspecting users and stored data</h2>
+  <pre>cd C:\Users\Preet\OneDrive\Desktop\MyApp\backend
+npx prisma studio</pre>
+  <p>Open <code>http://localhost:5555</code>. Use <strong>User</strong> for account rows, <strong>RefreshToken</strong> for login sessions, <strong>VerificationCode</strong> for hashed OTP records, and catalogue tables for categories/products/variants/images/reviews. pgAdmin offers the same data under Databases → myapp → Schemas → public → Tables.</p>
+  <p>Never manually edit authentication data unless diagnosing development state. Normal changes should go through APIs so validation and security rules run.</p>
+
+  <h2 id="troubleshooting">17. Troubleshooting common errors</h2>
+  <table>
+    <tr><th>Error</th><th>Reason</th><th>Fix</th></tr>
+    <tr><td><code>Unable to resolve module ./App</code></td><td><code>App.tsx</code> missing/wrong location/name.</td><td>Keep it beside <code>index.js</code> and import <code>./App</code>.</td></tr>
+    <tr><td><code>Cannot reach the Cartly server</code></td><td>Backend stopped or ADB 4000 reverse missing.</td><td>Start backend; run <code>adb reverse tcp:4000 tcp:4000</code>.</td></tr>
+    <tr><td><code>EADDRINUSE 0.0.0.0:4000</code></td><td>Another backend already listens on 4000.</td><td>Use the existing process or stop its exact PID before restarting.</td></tr>
+    <tr><td><code>Route GET / was not found</code></td><td>Root API route intentionally does not exist.</td><td>Use <code>http://localhost:4000/api/health</code>.</td></tr>
+    <tr><td>Phone absent from <code>adb devices</code></td><td>USB authorization/wireless connection is missing.</td><td>Authorize prompt, pair/connect again, then verify device status.</td></tr>
+    <tr><td>Prisma engine/URL error</td><td>Malformed <code>DATABASE_URL</code> or unavailable PostgreSQL.</td><td>Check one valid URL line, service status and port 5432.</td></tr>
+    <tr><td>OTP only appears in console</td><td>SMTP is absent.</td><td>Add SMTP host/port/user/app-password/from to private <code>.env</code>.</td></tr>
+    <tr><td>Old JavaScript appears</td><td>Metro cache.</td><td>Restart using <code>npm start -- --reset-cache</code>.</td></tr>
+  </table>
+
+  <h2 id="security">18. Security decisions</h2>
+  <ul>
+    <li>scrypt salted password hashes; no plaintext passwords.</li>
+    <li>OTP hashes with expiry, attempts, purpose and one-time consumption.</li>
+    <li>Short access JWTs and rotating, hashed, revocable refresh tokens.</li>
+    <li>Device token storage through Keychain/Android Keystore.</li>
+    <li>Zod validation on request body/query data.</li>
+    <li>Authentication and role authorization middleware.</li>
+    <li>Rate limiting for auth and OTP abuse.</li>
+    <li>Helmet, controlled CORS, JSON size limit and disabled Express signature.</li>
+    <li>Restricted upload MIME, size, filename and binary signature.</li>
+    <li><code>.env</code> and uploaded development files excluded from Git.</li>
+  </ul>
+  <div class="notice warning"><strong>Production note:</strong> card number/CVV must never be stored or processed directly by Cartly. Use a PCI-compliant gateway such as Razorpay or Stripe and verify payments through signed server webhooks.</div>
+
+  <h2 id="remaining">19. What remains for a production ecommerce app</h2>
+  <ol>
+    <li><strong>Persistent cart/wishlist:</strong> guest cart, login merge, quantity/stock checks and server coupons.</li>
+    <li><strong>Order engine:</strong> server totals, database transaction, inventory reservation/deduction, idempotency and order APIs.</li>
+    <li><strong>Payments:</strong> gateway checkout, backend verification, webhooks, failure recovery and refunds.</li>
+    <li><strong>Fulfilment:</strong> status events, tracking, cancellation eligibility, returns, pickup and refund workflow.</li>
+    <li><strong>Notifications/support:</strong> Firebase push, transactional email, persistent inbox and tickets.</li>
+    <li><strong>Admin:</strong> dashboard and CRUD for catalogue, inventory, orders, users, coupons, reviews and returns.</li>
+    <li><strong>Production media:</strong> cloud object storage, resizing, thumbnails, CDN and image deletion jobs.</li>
+    <li><strong>Operations:</strong> hosted PostgreSQL, HTTPS API, secrets manager, migrations, backups, logs, monitoring and alerts.</li>
+    <li><strong>Quality:</strong> more screen/component tests, isolated test database, end-to-end checkout tests, accessibility and performance.</li>
+    <li><strong>Release:</strong> app identity/assets, signing, privacy/account deletion, analytics, crash reporting and Play Store submission.</li>
+  </ol>
+  <div class="good notice"><strong>Recommended immediate next phase:</strong> persistent Cart/Wishlist, followed by transactional Orders and Payments.</div>
+
+  <h2>20. Quick mental model</h2>
+  <p>When learning or extending Cartly, follow one feature vertically. Start at its screen, find the context hook, inspect the API wrapper, follow the Express route into its service, then inspect the Prisma model. Keep UI state in the screen, shared client state in a context, HTTP behavior in services, business rules in backend services and durable facts in PostgreSQL. This separation is what allows the prototype to grow into a maintainable retail system.</p>
+  <div class="flow">Screen → Context → Mobile API wrapper → Shared apiClient
+→ Express route → Validation/Auth → Service → Prisma → PostgreSQL</div>
+  <p class="footer-note">Cartly A-to-Z Technical Guide · Generated from the project implementation on 5 August 2026. Secrets and private environment values are intentionally excluded.</p>
+</body>
+</html>

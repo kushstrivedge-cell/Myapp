@@ -1,97 +1,128 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Cartly
 
-# Getting Started
+Cartly is a full-stack React Native ecommerce application backed by an Express/TypeScript API, PostgreSQL and Prisma.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Implemented
 
-## Step 1: Start Metro
+- Complete customer shopping and account navigation
+- Registration, email OTP verification, login, JWT refresh/logout and password reset
+- Profile update, secure password change and password-confirmed account deletion
+- PostgreSQL address CRUD with atomic default-address handling
+- API-backed categories, products, search, filters, sorting and pagination
+- Product variants, stock, images, ratings, reviews and related products
+- Admin-protected product image upload/delete
+- Shared authenticated API client with automatic refresh/retry
+- Offline banner and reusable loading/error states
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+Cart, wishlist, checkout, orders, returns and notifications currently have complete mobile UI flows but still use local React state. Their backend modules are the next phases.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Stack
 
-```sh
-# Using npm
+- React Native 0.84 + TypeScript
+- React Navigation
+- Express 5 + TypeScript
+- PostgreSQL 18
+- Prisma 7
+- JWT access/refresh tokens and scrypt password hashing
+- Nodemailer SMTP
+- Jest (mobile) and Vitest/Supertest (backend)
+
+## Setup
+
+Install mobile dependencies:
+
+```powershell
+npm install
+```
+
+Install backend dependencies:
+
+```powershell
+cd backend
+npm install
+```
+
+Copy `backend/.env.example` to `backend/.env` and enter local secrets. Never commit `.env`.
+
+Create a PostgreSQL database named `myapp`, then run:
+
+```powershell
+cd backend
+npm run prisma:generate
+npm run prisma:migrate -- --name init
+npm run prisma:seed
+```
+
+## Run locally
+
+Terminal 1:
+
+```powershell
+cd backend
+npm run dev
+```
+
+Terminal 2:
+
+```powershell
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
+Terminal 3:
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```powershell
+adb devices
+npm run android:usb
 ```
 
-### iOS
+`android:usb` configures ADB reverse for Metro port `8081` and API port `4000`. It works with USB and Android Wireless Debugging.
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+Health endpoint:
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```text
+http://localhost:4000/api/health
 ```
 
-Then, and every time you update your native dependencies, run:
+## Tests
 
-```sh
-bundle exec pod install
+Mobile:
+
+```powershell
+npm run lint
+npx tsc --noEmit
+npm test -- --runInBand
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Backend:
 
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+```powershell
+cd backend
+npm run typecheck
+npm test
+npm run build
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Database inspection
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```powershell
+cd backend
+npx prisma studio
+```
 
-## Step 3: Modify your app
+Open `http://localhost:5555`.
 
-Now that you have successfully run the app, let's make changes!
+## Documentation
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+- [A-to-Z technical guide](docs/Cartly-A-to-Z-Technical-Guide.pdf)
+- [Editable guide source](docs/Cartly-A-to-Z-Technical-Guide.html)
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+The guide documents every screen, context, API, database model, authentication flow, run command, security decision and remaining production phase.
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+## Security
 
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- Passwords and OTPs are stored only as hashes.
+- Refresh tokens are hashed, rotated and revocable.
+- Mobile tokens use Android Keystore/iOS Keychain.
+- Profile, address, review and image mutation routes require authentication.
+- Image mutation additionally requires the `ADMIN` role.
+- `.env`, uploaded development media and build outputs are ignored by Git.
