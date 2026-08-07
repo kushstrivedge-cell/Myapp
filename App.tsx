@@ -1,24 +1,34 @@
 import React from 'react';
-import {NavigationContainer} from '@react-navigation/native';
-import {StatusBar, StyleSheet, View} from 'react-native';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
-import {CartProvider} from './src/context/CartContext';
-import {CheckoutProvider} from './src/context/CheckoutContext';
-import {SearchProvider} from './src/context/SearchContext';
-import {WishlistProvider} from './src/context/WishlistContext';
-import {AuthProvider} from './src/context/AuthContext';
-import {OrdersProvider} from './src/context/OrdersContext';
-import {AddressBookProvider} from './src/context/AddressBookContext';
-import {NotificationsProvider} from './src/context/NotificationsContext';
+import { LinkingOptions, NavigationContainer } from '@react-navigation/native';
+import { StatusBar, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { CartProvider } from './src/context/CartContext';
+import { CheckoutProvider } from './src/context/CheckoutContext';
+import { SearchProvider } from './src/context/SearchContext';
+import { WishlistProvider } from './src/context/WishlistContext';
+import { AuthProvider } from './src/context/AuthContext';
+import { OrdersProvider } from './src/context/OrdersContext';
+import { AddressBookProvider } from './src/context/AddressBookContext';
+import { NotificationsProvider } from './src/context/NotificationsContext';
 import RootNavigator from './src/navigation/RootNavigator';
-import {NetworkProvider} from './src/context/NetworkContext';
-import {ConnectivityBanner} from './src/components/feedback/ConnectivityBanner';
-import {AsyncStateView} from './src/components/feedback/AsyncStateView';
-import {useAuth} from './src/context/AuthContext';
-import {CatalogueProvider} from './src/context/CatalogueContext';
+import { NetworkProvider } from './src/context/NetworkContext';
+import { ConnectivityBanner } from './src/components/feedback/ConnectivityBanner';
+import { AsyncStateView } from './src/components/feedback/AsyncStateView';
+import { useAuth } from './src/context/AuthContext';
+import { CatalogueProvider } from './src/context/CatalogueContext';
+import { RootStackParamList } from './src/navigation/navigationTypes';
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['cartly://'],
+  config: {
+    screens: {
+      OrderTracking: 'orders/:orderId/track',
+    },
+  },
+};
 
 function AppContent() {
-  const {loading, retrySession, sessionError} = useAuth();
+  const { loading, retrySession, sessionError } = useAuth();
 
   if (loading) {
     return <AsyncStateView loading loadingLabel="Restoring your session…" />;
@@ -29,7 +39,7 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <RootNavigator />
     </NavigationContainer>
   );
@@ -45,19 +55,19 @@ function App() {
           <AuthProvider>
             <CatalogueProvider>
               <AddressBookProvider>
-              <CartProvider>
-                <CheckoutProvider>
-                  <OrdersProvider>
-                    <NotificationsProvider>
-                      <SearchProvider>
-                        <WishlistProvider>
-                          <AppContent />
-                        </WishlistProvider>
-                      </SearchProvider>
-                    </NotificationsProvider>
-                  </OrdersProvider>
-                </CheckoutProvider>
-              </CartProvider>
+                <CartProvider>
+                  <CheckoutProvider>
+                    <OrdersProvider>
+                      <NotificationsProvider>
+                        <SearchProvider>
+                          <WishlistProvider>
+                            <AppContent />
+                          </WishlistProvider>
+                        </SearchProvider>
+                      </NotificationsProvider>
+                    </OrdersProvider>
+                  </CheckoutProvider>
+                </CartProvider>
               </AddressBookProvider>
             </CatalogueProvider>
           </AuthProvider>
@@ -67,6 +77,6 @@ function App() {
   );
 }
 
-const styles = StyleSheet.create({app: {flex: 1}});
+const styles = StyleSheet.create({ app: { flex: 1 } });
 
 export default App;

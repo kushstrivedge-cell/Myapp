@@ -1,4 +1,4 @@
-import React, {createContext, ReactNode, useContext, useState} from 'react';
+import React, { createContext, ReactNode, useContext, useState } from 'react';
 
 export type DeliveryAddress = {
   fullName: string;
@@ -23,12 +23,19 @@ type CheckoutContextValue = {
 };
 
 const emptyAddress: DeliveryAddress = {
-  fullName: '', phone: '', pincode: '', city: '', state: '', addressLine: '',
+  fullName: '',
+  phone: '',
+  pincode: '',
+  city: '',
+  state: '',
+  addressLine: '',
 };
 
-const CheckoutContext = createContext<CheckoutContextValue | undefined>(undefined);
+const CheckoutContext = createContext<CheckoutContextValue | undefined>(
+  undefined,
+);
 
-export function CheckoutProvider({children}: {children: ReactNode}) {
+export function CheckoutProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState(emptyAddress);
   const [shipping, setShipping] = useState<ShippingMethod>('standard');
   const [payment, setPayment] = useState<PaymentMethod>('upi');
@@ -40,7 +47,17 @@ export function CheckoutProvider({children}: {children: ReactNode}) {
   };
 
   return (
-    <CheckoutContext.Provider value={{address, shipping, payment, setAddress, setShipping, setPayment, resetCheckout}}>
+    <CheckoutContext.Provider
+      value={{
+        address,
+        shipping,
+        payment,
+        setAddress,
+        setShipping,
+        setPayment,
+        resetCheckout,
+      }}
+    >
       {children}
     </CheckoutContext.Provider>
   );
@@ -48,6 +65,7 @@ export function CheckoutProvider({children}: {children: ReactNode}) {
 
 export function useCheckout() {
   const context = useContext(CheckoutContext);
-  if (!context) throw new Error('useCheckout must be used inside CheckoutProvider');
+  if (!context)
+    throw new Error('useCheckout must be used inside CheckoutProvider');
   return context;
 }
