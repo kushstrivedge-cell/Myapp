@@ -304,6 +304,168 @@ const products = [
   },
 ];
 
+const catalogueTemplates: Record<
+  string,
+  { names: string[]; image: string; basePrice: number; sizes: string[] }
+> = {
+  mobiles: {
+    names: [
+      '5G smartphone',
+      'Fast wall charger',
+      'Braided USB cable',
+      'Wireless earbuds',
+      'Protective phone case',
+      'Tempered glass pack',
+      'Magnetic car mount',
+      'Compact power bank',
+    ],
+    image:
+      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80',
+    basePrice: 699,
+    sizes: ['Standard', '10,000 mAh', '20,000 mAh'],
+  },
+  electronics: {
+    names: [
+      'Wireless keyboard',
+      'Ergonomic mouse',
+      'Full HD monitor',
+      'Portable speaker',
+      'Wi-Fi router',
+      'External SSD',
+      'Web camera',
+      'Smart fitness band',
+    ],
+    image:
+      'https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=900&q=80',
+    basePrice: 1199,
+    sizes: ['Standard', 'Compact', 'Pro'],
+  },
+  fashion: {
+    names: [
+      'Cotton crew-neck T-shirt',
+      'Slim-fit denim jeans',
+      'Everyday walking shoes',
+      'Casual zip jacket',
+      'Classic cotton kurta',
+      'Structured handbag',
+      'Lightweight travel backpack',
+      'Analog wrist watch',
+    ],
+    image:
+      'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=900&q=80',
+    basePrice: 499,
+    sizes: ['S', 'M', 'L', 'XL'],
+  },
+  home: {
+    names: [
+      'Cotton bedsheet set',
+      'Non-stick cookware set',
+      'Storage organiser',
+      'LED table lamp',
+      'Soft bath towel set',
+      'Decorative cushion covers',
+      'Stainless steel bottle',
+      'Microfibre cleaning kit',
+    ],
+    image:
+      'https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=900&q=80',
+    basePrice: 399,
+    sizes: ['Standard', 'Large', 'Family pack'],
+  },
+  beauty: {
+    names: [
+      'Hydrating face wash',
+      'Daily moisturising lotion',
+      'Vitamin C face serum',
+      'Nourishing hair shampoo',
+      'Matte lipstick set',
+      'Long-wear perfume',
+      'Sunscreen SPF 50',
+      'Skin care essentials kit',
+    ],
+    image:
+      'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=80',
+    basePrice: 249,
+    sizes: ['50 ml', '100 ml', '200 ml'],
+  },
+  grocery: {
+    names: [
+      'Premium basmati rice',
+      'Roasted coffee beans',
+      'Organic green tea',
+      'Mixed dry fruits',
+      'Natural peanut butter',
+      'Whole grain oats',
+      'Cold-pressed cooking oil',
+      'Healthy snack pack',
+    ],
+    image:
+      'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80',
+    basePrice: 199,
+    sizes: ['500 g', '1 kg', '2 kg'],
+  },
+};
+const brands = [
+  'Cartly Basics',
+  'Nova',
+  'Aero',
+  'UrbanNest',
+  'EverPure',
+  'PrimeCraft',
+  'Viva',
+  'Northstar',
+];
+const colours = [
+  'Black',
+  'Blue',
+  'White',
+  'Green',
+  'Grey',
+  'Red',
+  'Navy',
+  'Beige',
+];
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, '-')
+    .replaceAll(/(^-|-$)/g, '');
+
+const generatedProducts = Array.from({ length: 990 }, (_, offset) => {
+  const number = offset + 11;
+  const category = categories[offset % categories.length]!.slug;
+  const template = catalogueTemplates[category]!;
+  const productName = template.names[offset % template.names.length]!;
+  const brand = brands[(offset * 3) % brands.length]!;
+  const series = 100 + ((offset * 17) % 900);
+  const price = template.basePrice + ((offset * 137) % 5000);
+  const oldPrice =
+    offset % 4 === 0
+      ? null
+      : Math.ceil((price * (1.15 + (offset % 5) * 0.05)) / 10) * 10;
+  const padded = String(number).padStart(4, '0');
+  return {
+    id: `seed-product-${padded}`,
+    category,
+    slug: `${slugify(brand)}-${slugify(productName)}-${series}-${padded}`,
+    name: `${brand} ${productName} ${series}`,
+    description: `${productName} by ${brand}, designed for dependable everyday use with quality materials, practical features and reliable value.`,
+    image: `${template.image}&seed=${number}`,
+    variants: [0, 1].map(variant => ({
+      id: `seed-variant-${padded}-${variant + 1}`,
+      sku: `CT-${category.slice(0, 3).toUpperCase()}-${padded}-${variant + 1}`,
+      colour: colours[(offset + variant * 3) % colours.length]!,
+      size: template.sizes[(offset + variant) % template.sizes.length]!,
+      price: price + variant * Math.max(50, Math.round(price * 0.04)),
+      oldPrice: oldPrice === null ? null : oldPrice + variant * 100,
+      stock:
+        offset % 29 === 0 && variant === 1
+          ? 0
+          : 5 + ((offset * 11 + variant * 7) % 91),
+    })),
+  };
+});
+
 async function main() {
   for (const category of categories) {
     await prisma.category.upsert({
@@ -359,6 +521,37 @@ async function main() {
     }
   }
 
+  await prisma.product.createMany({
+    data: generatedProducts.map(product => ({
+      id: product.id,
+      categoryId: categoryId.get(product.category)!,
+      slug: product.slug,
+      name: product.name,
+      description: product.description,
+      active: true,
+    })),
+    skipDuplicates: true,
+  });
+  await prisma.productVariant.createMany({
+    data: generatedProducts.flatMap(product =>
+      product.variants.map(variant => ({
+        ...variant,
+        productId: product.id,
+      })),
+    ),
+    skipDuplicates: true,
+  });
+  await prisma.productImage.createMany({
+    data: generatedProducts.map((product, index) => ({
+      id: `seed-image-${String(index + 11).padStart(4, '0')}`,
+      productId: product.id,
+      url: product.image,
+      alt: product.name,
+      position: 0,
+    })),
+    skipDuplicates: true,
+  });
+
   const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
   const reviewers = await Promise.all(
     [
@@ -402,9 +595,39 @@ async function main() {
     }
   }
 
+  await prisma.review.createMany({
+    data: generatedProducts.flatMap((product, productIndex) =>
+      reviewers.slice(0, 2).map((reviewer, reviewerIndex) => ({
+        userId: reviewer.id,
+        productId: product.id,
+        rating: 3 + ((productIndex + reviewerIndex * 2) % 3),
+        title:
+          reviewerIndex === 0
+            ? 'Reliable product for everyday use'
+            : 'Good quality and value',
+        text:
+          reviewerIndex === 0
+            ? 'The product matched its description, was packed well and has worked reliably.'
+            : 'Useful features, good finish and fair value for the price.',
+      })),
+    ),
+    skipDuplicates: true,
+  });
+
+  await prisma.coupon.upsert({
+    where: { code: 'SAVE10' },
+    create: { code: 'SAVE10', percentOff: 10, minimumCart: 500, active: true },
+    update: { percentOff: 10, amountOff: null, minimumCart: 500, active: true },
+  });
+
   console.info(
-    `Seeded ${categories.length} categories, ${products.length} products and ${
-      products.length * reviewers.length
+    `Seeded ${categories.length} categories, ${
+      products.length + generatedProducts.length
+    } products, ${
+      products.reduce((total, product) => total + product.variants.length, 0) +
+      generatedProducts.length * 2
+    } variants and ${
+      products.length * reviewers.length + generatedProducts.length * 2
     } reviews.`,
   );
 }

@@ -1,8 +1,10 @@
 import 'dotenv/config';
-import {z} from 'zod';
+import { z } from 'zod';
 
 const schema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().min(1),
   APP_ORIGIN: z.string().default('*'),
@@ -17,11 +19,19 @@ const schema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().default('Cartly <no-reply@cartly.local>'),
+  MOBILE_APP_SCHEME: z.string().default('cartly'),
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  SUPPORT_EMAIL: z.string().email().default('support@cartly.local'),
+  SUPPORT_PHONE: z.string().default('+911800000000'),
+  SUPPORT_CHAT_URL: z.string().url().default('https://wa.me/911800000000'),
 });
 
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
-  console.error('Invalid environment configuration', parsed.error.flatten().fieldErrors);
+  console.error(
+    'Invalid environment configuration',
+    parsed.error.flatten().fieldErrors,
+  );
   throw new Error('Invalid environment configuration');
 }
 

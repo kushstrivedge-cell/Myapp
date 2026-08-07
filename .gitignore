@@ -40,6 +40,8 @@ local.properties
 node_modules/
 npm-debug.log
 yarn-error.log
+admin/dist/
+admin/*.tsbuildinfo
 
 # fastlane
 #
@@ -65,6 +67,10 @@ yarn-error.log
 
 # testing
 /coverage
+
+# Firebase project configuration (keep local)
+android/app/google-services.json
+ios/GoogleService-Info.plist
 
 # Yarn
 .yarn/*

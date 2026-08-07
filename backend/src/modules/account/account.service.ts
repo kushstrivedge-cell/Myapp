@@ -62,13 +62,16 @@ export const accountService = {
       );
     }
     const passwordHash = await hashPassword(newPassword);
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
-      prisma.refreshToken.updateMany({
+    await prisma.$transaction(async transaction => {
+      await transaction.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      });
+      await transaction.refreshToken.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
-      }),
-    ]);
+      });
+    });
     return {
       message: 'Password changed successfully. Sign in again on your devices.',
     };

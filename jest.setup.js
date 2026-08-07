@@ -16,3 +16,11 @@ jest.mock('react-native-keychain', () => ({
   setGenericPassword: jest.fn().mockResolvedValue(true),
   resetGenericPassword: jest.fn().mockResolvedValue(true),
 }));
+
+jest.mock('@react-native-firebase/messaging', () => ({
+  getMessaging: jest.fn(() => ({})),
+  getToken: jest.fn().mockResolvedValue('test-fcm-token-that-is-long-enough'),
+  onTokenRefresh: jest.fn(() => jest.fn()),
+  requestPermission: jest.fn().mockResolvedValue(1),
+  setBackgroundMessageHandler: jest.fn(),
+}));

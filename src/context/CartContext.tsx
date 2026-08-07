@@ -1,118 +1,166 @@
-import React, {createContext, ReactNode, useContext, useMemo, useState} from 'react';
-import {CatalogueProduct} from '../data/products';
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { CatalogueProduct } from '../data/products';
+import { cartApi, ServerCart } from '../services/commerceApi';
+import { useAuth } from './AuthContext';
 
-export type CartSelection = {
-  colour: string;
-  size: string;
-};
-
+export type CartSelection = { colour: string; size: string };
 export type CartItem = CartSelection & {
   key: string;
   product: CatalogueProduct;
   quantity: number;
+  variantId: string;
+  available: boolean;
+  cancelledQuantity?: number;
+  cancellationReason?: string | null;
+  refundedAmount?: number;
 };
-
+type Result = Promise<string | null>;
 type CartContextValue = {
   items: CartItem[];
   itemCount: number;
   subtotal: number;
   couponCode: string | null;
   discount: number;
-  applyCoupon: (code: string) => boolean;
-  removeCoupon: () => void;
-  addItem: (product: CatalogueProduct, selection?: Partial<CartSelection>, quantity?: number) => void;
-  updateQuantity: (key: string, quantity: number) => void;
-  removeItem: (key: string) => void;
-  clearCart: () => void;
+  tax: number;
+  shipping: number;
+  total: number;
+  loading: boolean;
+  error: string | null;
+  stockValid: boolean;
+  retry: () => Promise<void>;
+  applyCoupon: (code: string) => Result;
+  removeCoupon: () => Result;
+  addItem: (
+    product: CatalogueProduct,
+    selection?: Partial<CartSelection>,
+    quantity?: number,
+  ) => Result;
+  updateQuantity: (key: string, quantity: number) => Result;
+  removeItem: (key: string) => Result;
+  clearCart: () => Result;
+  validateCheckout: (shipping: 'standard' | 'express') => Promise<ServerCart>;
 };
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
+const empty: ServerCart = {
+  items: [],
+  itemCount: 0,
+  couponCode: null,
+  subtotal: 0,
+  discount: 0,
+  tax: 0,
+  shipping: 99,
+  total: 99,
+  stockValid: true,
+  stockIssues: [],
+};
+const message = (error: unknown) =>
+  error instanceof Error ? error.message : 'Cart request failed.';
 
-type CartProviderProps = {children: ReactNode};
-
-export function CartProvider({children}: CartProviderProps) {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [couponCode, setCouponCode] = useState<string | null>(null);
-
-  const addItem: CartContextValue['addItem'] = (
-    product,
-    selection = {},
-    quantity = 1,
-  ) => {
-    const colour = selection.colour ?? 'Slate';
-    const size = selection.size ?? 'Standard';
-    const key = `${product.id}-${colour}-${size}`;
-
-    setItems(currentItems => {
-      const existingItem = currentItems.find(item => item.key === key);
-      if (existingItem) {
-        return currentItems.map(item =>
-          item.key === key
-            ? {...item, quantity: Math.min(10, item.quantity + quantity)}
-            : item,
-        );
+export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const authenticated = Boolean(user);
+  const [cart, setCart] = useState<ServerCart>(empty);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const accept = useCallback((result: ServerCart) => {
+    setCart(result);
+    setError(null);
+  }, []);
+  const run = useCallback(
+    async (request: () => Promise<ServerCart>) => {
+      try {
+        accept(await request());
+        return null;
+      } catch (failure) {
+        const text = message(failure);
+        setError(text);
+        return text;
       }
-      return [...currentItems, {key, product, colour, size, quantity}];
-    });
-  };
-
-  const updateQuantity = (key: string, quantity: number) => {
-    if (quantity <= 0) {
-      setItems(currentItems => currentItems.filter(item => item.key !== key));
-      return;
-    }
-    setItems(currentItems =>
-      currentItems.map(item =>
-        item.key === key ? {...item, quantity: Math.min(10, quantity)} : item,
-      ),
-    );
-  };
-
-  const removeItem = (key: string) => {
-    setItems(currentItems => currentItems.filter(item => item.key !== key));
-  };
-
-  const clearCart = () => {
-    setItems([]);
-    setCouponCode(null);
-  };
-  const applyCoupon = (code: string) => {
-    const isValid = code.trim().toUpperCase() === 'SAVE10';
-    setCouponCode(isValid ? 'SAVE10' : null);
-    return isValid;
-  };
-  const removeCoupon = () => setCouponCode(null);
-  const itemCount = items.reduce((total, item) => total + item.quantity, 0);
-  const subtotal = items.reduce(
-    (total, item) => total + item.product.price * item.quantity,
-    0,
+    },
+    [accept],
   );
-  const discount = couponCode === 'SAVE10' ? Math.round(subtotal * 0.1) : 0;
 
-  const value = useMemo(
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (authenticated) {
+        const merged = await cartApi.merge();
+        accept(merged ?? (await cartApi.load(true)));
+      } else accept(await cartApi.load(false));
+    } catch (failure) {
+      setError(message(failure));
+    } finally {
+      setLoading(false);
+    }
+  }, [accept, authenticated]);
+  useEffect(() => {
+    load().catch(() => undefined);
+  }, [load]);
+
+  const items = useMemo<CartItem[]>(
+    () =>
+      cart.items.map(item => ({
+        key: item.id,
+        product: item.product,
+        quantity: item.quantity,
+        variantId: item.variant.id,
+        colour: item.variant.colour ?? 'Standard',
+        size: item.variant.size ?? 'Standard',
+        available: item.available,
+      })),
+    [cart.items],
+  );
+  const value = useMemo<CartContextValue>(
     () => ({
       items,
-      itemCount,
-      subtotal,
-      couponCode,
-      discount,
-      applyCoupon,
-      removeCoupon,
-      addItem,
-      updateQuantity,
-      removeItem,
-      clearCart,
+      itemCount: cart.itemCount,
+      subtotal: cart.subtotal,
+      couponCode: cart.couponCode,
+      discount: cart.discount,
+      tax: cart.tax,
+      shipping: cart.shipping,
+      total: cart.total,
+      loading,
+      error,
+      stockValid: cart.stockValid,
+      retry: load,
+      addItem: async (product, selection = {}, quantity = 1) => {
+        const variant =
+          product.variants.find(
+            item =>
+              (!selection.colour || item.colour === selection.colour) &&
+              (!selection.size || item.size === selection.size),
+          ) ?? product.variants.find(item => item.inStock);
+        if (!variant) return 'No purchasable variant is available.';
+        return run(() => cartApi.add(variant.id, quantity, authenticated));
+      },
+      updateQuantity: (key, quantity) =>
+        quantity <= 0
+          ? run(() => cartApi.remove(key, authenticated))
+          : run(() => cartApi.quantity(key, quantity, authenticated)),
+      removeItem: key => run(() => cartApi.remove(key, authenticated)),
+      clearCart: () => run(() => cartApi.clear(authenticated)),
+      applyCoupon: code => run(() => cartApi.coupon(code, authenticated)),
+      removeCoupon: () => run(() => cartApi.removeCoupon(authenticated)),
+      validateCheckout: shipping => cartApi.validateCheckout(shipping),
     }),
-    [items, itemCount, subtotal, couponCode, discount],
+    [authenticated, cart, error, items, load, loading, run],
   );
-
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used inside CartProvider');
-  }
+  if (!context) throw new Error('useCart must be used inside CartProvider');
   return context;
 }

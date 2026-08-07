@@ -8,11 +8,12 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=1",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "admin:create": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "latest",
@@ -21,11 +22,12 @@
     "dotenv": "latest",
     "express": "latest",
     "express-rate-limit": "latest",
+    "firebase-admin": "^14.2.0",
     "helmet": "latest",
     "jose": "latest",
     "multer": "^2.2.0",
     "nodemailer": "latest",
-    "pg": "latest",
+    "pg": "8.16.3",
     "zod": "latest"
   },
   "devDependencies": {

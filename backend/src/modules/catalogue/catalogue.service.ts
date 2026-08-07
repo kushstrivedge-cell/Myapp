@@ -162,7 +162,7 @@ export const catalogueService = {
 
   async reviews(identifier: string, page: number, limit: number) {
     const product = await findProduct(identifier);
-    const [items, total] = await prisma.$transaction([
+    const [items, total] = await Promise.all([
       prisma.review.findMany({
         where: {productId: product.id},
         include: {user: {select: {id: true, name: true}}},

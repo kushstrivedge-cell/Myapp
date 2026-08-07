@@ -1,0 +1,12 @@
+ALTER TABLE "Notification" ADD COLUMN "type" TEXT NOT NULL DEFAULT 'GENERAL', ADD COLUMN "data" JSONB, ADD COLUMN "pushedAt" TIMESTAMP(3);
+ALTER TABLE "ReturnRequest" ADD COLUMN "refundStatus" TEXT NOT NULL DEFAULT 'NOT_STARTED', ADD COLUMN "adminNote" TEXT, ADD COLUMN "pickupAt" TIMESTAMP(3);
+CREATE TABLE "ReturnItem" ("id" TEXT NOT NULL, "returnRequestId" TEXT NOT NULL, "orderItemId" TEXT NOT NULL, "quantity" INTEGER NOT NULL, "refundAmount" DECIMAL(12,2) NOT NULL, CONSTRAINT "ReturnItem_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "ReturnItem_returnRequestId_orderItemId_key" ON "ReturnItem"("returnRequestId", "orderItemId");
+ALTER TABLE "ReturnItem" ADD CONSTRAINT "ReturnItem_returnRequestId_fkey" FOREIGN KEY ("returnRequestId") REFERENCES "ReturnRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReturnItem" ADD CONSTRAINT "ReturnItem_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+CREATE TABLE "DeviceToken" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "token" TEXT NOT NULL, "platform" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "DeviceToken_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "DeviceToken_token_key" ON "DeviceToken"("token"); CREATE INDEX "DeviceToken_userId_idx" ON "DeviceToken"("userId");
+ALTER TABLE "DeviceToken" ADD CONSTRAINT "DeviceToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE TABLE "SupportTicket" ("id" TEXT NOT NULL, "number" TEXT NOT NULL, "userId" TEXT NOT NULL, "subject" TEXT NOT NULL, "message" TEXT NOT NULL, "channel" TEXT NOT NULL DEFAULT 'APP', "status" TEXT NOT NULL DEFAULT 'OPEN', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "SupportTicket_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "SupportTicket_number_key" ON "SupportTicket"("number"); CREATE INDEX "SupportTicket_userId_createdAt_idx" ON "SupportTicket"("userId", "createdAt");
+ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
