@@ -1,0 +1,10 @@
+appId: com.myapp
+---
+- launchApp:
+    clearState: false
+- assertVisible: "cartly"
+- tapOn: "Categories"
+- assertVisible: "Shop all products"
+- tapOn: "Cart"
+- assertVisible:
+    text: ".*(Your cart|Your cart is empty).*"

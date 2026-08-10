@@ -1,0 +1,33 @@
+appId: com.myapp
+env:
+  TEST_EMAIL: ${TEST_EMAIL}
+  TEST_PASSWORD: ${TEST_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- tapOn: "Account"
+- tapOn: "Sign in"
+- tapOn: "you@example.com"
+- inputText: ${TEST_EMAIL}
+- tapOn: "At least 6 characters"
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Sign in securely"
+- tapOn: "Categories"
+- tapOn: "Search products"
+- inputText: "headphones"
+- pressKey: Enter
+- tapOn:
+    text: ".*headphones.*"
+    index: 0
+- tapOn: "Add to cart"
+- tapOn: "Cart"
+- assertVisible: "Order summary"
+- tapOn: "Proceed to checkout"
+- assertVisible: "Delivery address"
+- tapOn: "Continue to shipping"
+- assertVisible: "Choose your delivery speed"
+- tapOn: "Standard delivery"
+- tapOn: "Continue to payment"
+- tapOn: "Cash on delivery"
+- tapOn: "Review your order"
+- assertVisible: "Place order"

@@ -4,9 +4,11 @@ import { app } from '../../app.js';
 import { hashPassword } from '../../lib/password.js';
 import { prisma } from '../../lib/prisma.js';
 import { createAccessToken } from '../../lib/tokens.js';
+import { uniqueTestIdentity } from '../../test/testData.js';
+import { randomUUID } from 'node:crypto';
 
-const email = 'orders-integration@cartly.local';
-const idempotencyKey = 'order-integration-attempt-001';
+const identity = uniqueTestIdentity('orders-integration');
+const idempotencyKey = `order-${randomUUID()}`;
 let userId = '';
 let token = '';
 let variantId = '';
@@ -18,7 +20,7 @@ const payload = {
   paymentMethod: 'cod',
   shippingAddress: {
     fullName: 'Order Tester',
-    phone: '9555555555',
+    phone: identity.phone,
     addressLine: '42 Transaction Road',
     city: 'Delhi',
     state: 'Delhi',
@@ -27,16 +29,11 @@ const payload = {
 };
 
 beforeAll(async () => {
-  const old = await prisma.user.findUnique({ where: { email } });
-  if (old) {
-    await prisma.order.deleteMany({ where: { userId: old.id } });
-    await prisma.user.delete({ where: { id: old.id } });
-  }
   const user = await prisma.user.create({
     data: {
       name: 'Order Tester',
-      email,
-      phone: '9555555555',
+      email: identity.email,
+      phone: identity.phone,
       passwordHash: await hashPassword('OrderTest123!'),
       emailVerifiedAt: new Date(),
     },
@@ -67,6 +64,19 @@ afterAll(async () => {
 });
 
 describe.sequential('real checkout and orders API', () => {
+  it('rejects malformed checkout addresses before changing cart data', async () => {
+    const response = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        ...payload,
+        shippingAddress: { ...payload.shippingAddress, pincode: '123' },
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    await expect(prisma.cartItem.count({ where: { userId } })).resolves.toBe(1);
+  });
+
   it('creates an atomic server-priced order, reserves inventory and clears the cart', async () => {
     const response = await request(app)
       .post('/api/v1/orders')
@@ -87,6 +97,10 @@ describe.sequential('real checkout and orders API', () => {
       }),
     );
     expect(order.tax).toBeGreaterThan(0);
+    expect(order.shippingCost).toBe(0);
+    expect(order.total).toBe(
+      order.subtotal - order.discount + order.tax + order.shippingCost,
+    );
     expect(order.timeline[0].status).toBe('CONFIRMED');
     await expect(prisma.cartItem.count({ where: { userId } })).resolves.toBe(0);
     await expect(
@@ -136,7 +150,7 @@ describe.sequential('real checkout and orders API', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         ...payload,
-        idempotencyKey: 'order-integration-attempt-rollback',
+        idempotencyKey: `rollback-${randomUUID()}`,
       });
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe('STOCK_CHANGED');
@@ -145,10 +159,6 @@ describe.sequential('real checkout and orders API', () => {
         where: { userId_variantId: { userId, variantId } },
       }),
     ).resolves.toEqual(expect.objectContaining({ quantity: 2 }));
-    await expect(
-      prisma.order.findUnique({
-        where: { idempotencyKey: 'order-integration-attempt-rollback' },
-      }),
-    ).resolves.toBeNull();
+    await expect(prisma.order.count({ where: { userId } })).resolves.toBe(1);
   });
 });
