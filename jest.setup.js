@@ -24,3 +24,32 @@ jest.mock('@react-native-firebase/messaging', () => ({
   requestPermission: jest.fn().mockResolvedValue(1),
   setBackgroundMessageHandler: jest.fn(),
 }));
+
+jest.mock('lucide-react-native', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return new Proxy(
+    {},
+    {
+      get: (_target, iconName) => {
+        const MockIcon = props =>
+          React.createElement(View, {
+            ...props,
+            testID: `icon-${String(iconName)}`,
+          });
+        MockIcon.displayName = String(iconName);
+        return MockIcon;
+      },
+    },
+  );
+});
+
+jest.mock('react-native-svg', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const MockSvg = props => React.createElement(View, props);
+  return new Proxy(
+    { __esModule: true, default: MockSvg },
+    { get: (target, name) => target[name] ?? MockSvg },
+  );
+});

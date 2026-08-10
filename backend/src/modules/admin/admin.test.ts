@@ -4,27 +4,21 @@ import { app } from '../../app.js';
 import { hashPassword } from '../../lib/password.js';
 import { prisma } from '../../lib/prisma.js';
 import { createAccessToken } from '../../lib/tokens.js';
+import { uniqueTestIdentity } from '../../test/testData.js';
 let adminId = '',
   customerId = '',
   adminToken = '',
   customerToken = '',
   couponId = '';
-const adminEmail = 'admin-api-test@cartly.local',
-  customerEmail = 'admin-customer-test@cartly.local';
+const adminIdentity = uniqueTestIdentity('admin-api');
+const customerIdentity = uniqueTestIdentity('admin-customer');
 beforeAll(async () => {
-  for (const email of [adminEmail, customerEmail]) {
-    const old = await prisma.user.findUnique({ where: { email } });
-    if (old) {
-      await prisma.order.deleteMany({ where: { userId: old.id } });
-      await prisma.user.delete({ where: { id: old.id } });
-    }
-  }
   const passwordHash = await hashPassword('AdminIntegration123!');
   const admin = await prisma.user.create({
     data: {
       name: 'API Admin',
-      email: adminEmail,
-      phone: '9888888888',
+      email: adminIdentity.email,
+      phone: adminIdentity.phone,
       passwordHash,
       role: 'ADMIN',
       emailVerifiedAt: new Date(),
@@ -33,8 +27,8 @@ beforeAll(async () => {
   const customer = await prisma.user.create({
     data: {
       name: 'API Customer',
-      email: customerEmail,
-      phone: '9999999998',
+      email: customerIdentity.email,
+      phone: customerIdentity.phone,
       passwordHash,
       emailVerifiedAt: new Date(),
     },

@@ -14,7 +14,11 @@ Cartly is a full-stack React Native ecommerce application backed by an Express/T
 - Shared authenticated API client with automatic refresh/retry
 - Offline banner and reusable loading/error states
 
-Cart, wishlist, checkout, orders, returns and notifications currently have complete mobile UI flows but still use local React state. Their backend modules are the next phases.
+- Persistent guest/authenticated carts, wishlists and server-side coupons
+- Transactional checkout, inventory reservation and idempotent order creation
+- Order tracking, cancellation, returns, refunds and fulfilment notifications
+- Firebase push registration and responsive SMTP order emails
+- Administrator dashboard for catalogue, inventory, orders, returns, customers, coupons, reviews and reports
 
 ## Stack
 
@@ -101,6 +105,19 @@ npm run typecheck
 npm test
 npm run build
 ```
+
+Backend tests never use the development database. `npm test` creates or reuses
+`myapp_test`, applies migrations, seeds deterministic catalogue data, disables
+SMTP/Firebase delivery and then runs Vitest sequentially. You can optionally copy
+`backend/.env.test.example` to `backend/.env.test` and set `TEST_DATABASE_URL`.
+
+End-to-end Android flows use Maestro:
+
+```powershell
+npm run test:e2e
+```
+
+See `e2e/README.md` for the required test account and device setup.
 
 ## Database inspection
 

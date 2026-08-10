@@ -1,5 +1,5 @@
 import React from 'react';
-import { LinkingOptions, NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CartProvider } from './src/context/CartContext';
@@ -16,16 +16,7 @@ import { ConnectivityBanner } from './src/components/feedback/ConnectivityBanner
 import { AsyncStateView } from './src/components/feedback/AsyncStateView';
 import { useAuth } from './src/context/AuthContext';
 import { CatalogueProvider } from './src/context/CatalogueContext';
-import { RootStackParamList } from './src/navigation/navigationTypes';
-
-const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ['cartly://'],
-  config: {
-    screens: {
-      OrderTracking: 'orders/:orderId/track',
-    },
-  },
-};
+import { linking } from './src/navigation/linking';
 
 function AppContent() {
   const { loading, retrySession, sessionError } = useAuth();
