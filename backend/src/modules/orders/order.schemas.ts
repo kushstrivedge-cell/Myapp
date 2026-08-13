@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const createOrderSchema = z.object({
   idempotencyKey: z.string().trim().min(12).max(100),
   shippingMethod: z.enum(['standard', 'express']),
-  paymentMethod: z.enum(['upi', 'card', 'cod']),
+  paymentMethod: z.enum(['razorpay', 'cod']),
   shippingAddress: z.object({
     fullName: z.string().trim().min(2).max(80),
     phone: z.string().regex(/^\d{10}$/),

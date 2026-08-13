@@ -24,6 +24,11 @@ const schema = z.object({
   SUPPORT_EMAIL: z.string().email().default('support@cartly.local'),
   SUPPORT_PHONE: z.string().default('+911800000000'),
   SUPPORT_CHAT_URL: z.string().url().default('https://wa.me/911800000000'),
+  RAZORPAY_KEY_ID: z.string().default(''),
+  RAZORPAY_KEY_SECRET: z.string().default(''),
+  RAZORPAY_WEBHOOK_SECRET: z.string().default(''),
+  COD_MAX_ORDER_AMOUNT: z.coerce.number().positive().default(5000),
+  COD_BLOCKED_PINCODES: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -36,3 +41,7 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+if (env.RAZORPAY_KEY_ID.startsWith('rzp_live_')) {
+  throw new Error('Cartly demo refuses Razorpay live keys; use rzp_test_ credentials only');
+}

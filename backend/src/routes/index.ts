@@ -10,6 +10,7 @@ import { fulfilmentRouter } from '../modules/fulfilment/fulfilment.routes.js';
 import { notificationRouter } from '../modules/notifications/notification.routes.js';
 import { supportRouter } from '../modules/support/support.routes.js';
 import { adminRouter } from '../modules/admin/admin.routes.js';
+import { paymentRouter } from '../modules/payments/payment.routes.js';
 
 export const apiRouter = Router();
 apiRouter.use('/auth', authRouter);
@@ -22,4 +23,5 @@ apiRouter.use('/fulfilment', fulfilmentRouter);
 apiRouter.use('/notifications', notificationRouter);
 apiRouter.use('/support', supportRouter);
 apiRouter.use('/admin', adminRouter);
+apiRouter.use('/payments', paymentRouter);
 apiRouter.use(catalogueRouter);

@@ -13,7 +13,7 @@ orderRouter.post('/', async (request, response) => {
     request.auth!.userId,
     createOrderSchema.parse(request.body),
   );
-  if (!result.duplicate)
+  if (!result.duplicate && result.order.status === 'CONFIRMED')
     void notify(
       request.auth!.userId,
       'Order confirmed',

@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { OrderRecord, OrderStatus, useOrders } from '../context/OrdersContext';
 import { RootStackParamList } from '../navigation/navigationTypes';
 import { AsyncStateView } from '../components/feedback/AsyncStateView';
+import ReturnTimelineCard from '../components/returns/ReturnTimelineCard';
+import {fulfilmentApi, ReturnRequest} from '../services/fulfilmentApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OrderTracking'>;
 type Step = {
@@ -55,11 +57,17 @@ function OrderTrackingScreen({ route }: Props) {
     findOrder(route.params.orderId),
   );
   const [error, setError] = useState('');
+  const [returnRequest, setReturnRequest] = useState<ReturnRequest | null>(null);
 
   const refresh = () => {
     setError('');
-    return loadOrder(route.params.orderId)
-      .then(setOrder)
+    return Promise.all([loadOrder(route.params.orderId), fulfilmentApi.returns()])
+      .then(([loadedOrder, returns]) => {
+        setOrder(loadedOrder);
+        setReturnRequest(
+          returns.find(item => item.order.number === loadedOrder.id) ?? null,
+        );
+      })
       .catch(failure =>
         setError(
           failure instanceof Error
@@ -91,7 +99,7 @@ function OrderTrackingScreen({ route }: Props) {
       ];
     }
     if (order.status === 'Return requested' || order.status === 'Returned')
-      return [...deliverySteps, ...returnSteps];
+      return returnSteps;
     return deliverySteps;
   }, [order]);
 
@@ -108,7 +116,9 @@ function OrderTrackingScreen({ route }: Props) {
     <SafeAreaView edges={['bottom']} style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#101820" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>ORDER STATUS TIMELINE</Text>
+        <Text style={styles.eyebrow}>
+          {returnRequest ? 'RETURN & REFUND TIMELINE' : 'ORDER STATUS TIMELINE'}
+        </Text>
         <Text style={styles.title}>{order.id}</Text>
         <View
           style={[
@@ -137,7 +147,7 @@ function OrderTrackingScreen({ route }: Props) {
           Live progress based on updates from the Cartly fulfilment system.
         </Text>
 
-        {(order.carrier ||
+        {!returnRequest && (order.carrier ||
           order.trackingNumber ||
           order.estimatedDeliveryAt) && (
           <View style={styles.shipmentCard}>
@@ -172,7 +182,18 @@ function OrderTrackingScreen({ route }: Props) {
           </View>
         )}
 
-        <View style={styles.card}>
+        {returnRequest ? (
+          <ReturnTimelineCard
+            item={returnRequest}
+            onSchedulePickup={async () => {
+              await fulfilmentApi.schedulePickup(
+                returnRequest.id,
+                new Date(Date.now() + 2 * 86_400_000).toISOString(),
+              );
+              await refresh();
+            }}
+          />
+        ) : <View style={styles.card}>
           {steps.map((step, index) => {
             const event = [...order.timeline]
               .reverse()
@@ -246,7 +267,7 @@ function OrderTrackingScreen({ route }: Props) {
               </View>
             );
           })}
-        </View>
+        </View>}
       </ScrollView>
     </SafeAreaView>
   );

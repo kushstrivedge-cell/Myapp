@@ -2,11 +2,12 @@ import { randomBytes } from 'node:crypto';
 import { OrderStatus, Prisma } from '../../generated/prisma/client.js';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { env } from '../../config/env.js';
 
 type Input = {
   idempotencyKey: string;
   shippingMethod: 'standard' | 'express';
-  paymentMethod: 'upi' | 'card' | 'cod';
+  paymentMethod: 'razorpay' | 'cod';
   shippingAddress: {
     fullName: string;
     phone: string;
@@ -146,12 +147,15 @@ export const orderService = {
           const tax = money(taxable * 0.18);
           const shippingCost = input.shippingMethod === 'express' ? 149 : 0;
           const total = money(taxable + tax + shippingCost);
+          const blockedPincodes = env.COD_BLOCKED_PINCODES.split(',').map(value => value.trim()).filter(Boolean);
+          if (input.paymentMethod === 'cod' && (total > env.COD_MAX_ORDER_AMOUNT || blockedPincodes.includes(input.shippingAddress.pincode)))
+            throw new AppError(400, 'Cash on delivery is unavailable for this order', 'COD_UNAVAILABLE');
           const createdOrder = await tx.order.create({
             data: {
               number: orderNumber(),
               userId,
               idempotencyKey: input.idempotencyKey,
-              status: OrderStatus.CONFIRMED,
+              status: input.paymentMethod === 'cod' ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
               paymentStatus: 'PENDING',
               paymentMethod: input.paymentMethod,
               shippingMethod: input.shippingMethod,
@@ -182,15 +186,14 @@ export const orderService = {
           await tx.orderStatusEvent.create({
             data: {
               orderId: createdOrder.id,
-              status: OrderStatus.CONFIRMED,
-              message: 'Order confirmed and inventory reserved.',
+              status: input.paymentMethod === 'cod' ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+              message: input.paymentMethod === 'cod' ? 'COD order confirmed and inventory reserved.' : 'Inventory reserved. Awaiting Razorpay Test Mode payment.',
             },
           });
-          await tx.cartItem.deleteMany({ where: { userId } });
-          await tx.user.update({
-            where: { id: userId },
-            data: { cartCouponCode: null },
-          });
+          if (input.paymentMethod === 'cod') {
+            await tx.cartItem.deleteMany({ where: { userId } });
+            await tx.user.update({ where: { id: userId }, data: { cartCouponCode: null } });
+          }
           const created = await tx.order.findUnique({
             where: { id: createdOrder.id },
             include: orderInclude,
