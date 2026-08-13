@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import {
   OrderStatus,
+  PaymentStatus,
   ReturnStatus,
   UserRole,
 } from '../../generated/prisma/client.js';
@@ -13,11 +14,20 @@ import { fulfilmentService } from '../fulfilment/fulfilment.service.js';
 export const adminRouter = Router();
 adminRouter.use(authenticate, authorize('ADMIN'));
 const dbData = (value: unknown) => value as never;
-adminRouter.get('/dashboard', async (_req, res) => {
-  const [start, end] = [new Date(new Date().setHours(0, 0, 0, 0)), new Date()];
-  const [users, products, orders, returns, revenue, todayOrders, lowStock] =
+adminRouter.get('/dashboard', async (req, res) => {
+  const query = z.object({from: z.coerce.date().optional(), to: z.coerce.date().optional()}).parse(req.query);
+  const end = query.to ?? new Date();
+  const start = query.from ?? new Date(end.getTime() - 29 * 86_400_000);
+  const periodMs = Math.max(86_400_000, end.getTime() - start.getTime());
+  const previousStart = new Date(start.getTime() - periodMs);
+  const today = new Date(new Date().setHours(0, 0, 0, 0));
+  const week = new Date(end.getTime() - 6 * 86_400_000);
+  const month = new Date(end.getFullYear(), end.getMonth(), 1);
+  const paidWhere = {paymentStatus: {in: [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED]}};
+  const [users, newCustomers, products, orders, returns, pendingFulfilment, failedPayments, revenueToday, revenueWeek, revenueMonth, rangeOrders, previousOrders, lowStock, lowStockCount, outOfStock, recentOrders, recentReturns, orderGroups, paymentGroups] =
     await Promise.all([
       prisma.user.count({ where: { role: 'CUSTOMER' } }),
+      prisma.user.count({where: {role: 'CUSTOMER', createdAt: {gte: start, lte: end}}}),
       prisma.product.count({ where: { active: true } }),
       prisma.order.count(),
       prisma.returnRequest.count({
@@ -25,18 +35,30 @@ adminRouter.get('/dashboard', async (_req, res) => {
           status: { in: [ReturnStatus.REQUESTED, ReturnStatus.APPROVED] },
         },
       }),
-      prisma.order.aggregate({
-        _sum: { total: true },
-        where: { status: { not: 'CANCELLED' } },
-      }),
-      prisma.order.count({ where: { createdAt: { gte: start, lte: end } } }),
+      prisma.order.count({where: {status: {in: [OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PROCESSING]}}}),
+      prisma.order.count({where: {paymentStatus: 'FAILED'}}),
+      prisma.order.aggregate({_sum:{total:true},where:{createdAt:{gte:today,lte:end},...paidWhere}}),
+      prisma.order.aggregate({_sum:{total:true},where:{createdAt:{gte:week,lte:end},...paidWhere}}),
+      prisma.order.aggregate({_sum:{total:true},where:{createdAt:{gte:month,lte:end},...paidWhere}}),
+      prisma.order.findMany({where:{createdAt:{gte:start,lte:end},status:{not:OrderStatus.CANCELLED}},select:{createdAt:true,total:true,paymentMethod:true,paymentStatus:true}}),
+      prisma.order.findMany({where:{createdAt:{gte:previousStart,lt:start},status:{not:OrderStatus.CANCELLED}},select:{total:true}}),
       prisma.productVariant.findMany({
-        where: { stock: { lte: 5 } },
-        include: { product: { select: { name: true } } },
+        where: { stock: { gt: 0, lte: 5 } },
+        include: { product: { select: { id: true, name: true } } },
         orderBy: { stock: 'asc' },
         take: 10,
       }),
+      prisma.productVariant.count({where:{stock:{gt:0,lte:5}}}),
+      prisma.productVariant.count({where:{stock:0}}),
+      prisma.order.findMany({include:{user:{select:{name:true}}},orderBy:{createdAt:'desc'},take:6}),
+      prisma.returnRequest.findMany({include:{order:{select:{number:true}},user:{select:{name:true}}},orderBy:{createdAt:'desc'},take:5}),
+      prisma.order.groupBy({by:['status'],_count:{_all:true}}),
+      prisma.order.groupBy({by:['paymentMethod'],where:{createdAt:{gte:start,lte:end}},_count:{_all:true},_sum:{total:true}}),
     ]);
+  const rangeRevenue=rangeOrders.reduce((sum,row)=>sum+Number(row.total),0);
+  const previousRevenue=previousOrders.reduce((sum,row)=>sum+Number(row.total),0);
+  const daily=new Map<string,number>();
+  for(const order of rangeOrders){const day=order.createdAt.toISOString().slice(0,10);daily.set(day,(daily.get(day)??0)+Number(order.total));}
   res.json({
     success: true,
     data: {
@@ -44,9 +66,18 @@ adminRouter.get('/dashboard', async (_req, res) => {
       products,
       orders,
       pendingReturns: returns,
-      revenue: Number(revenue._sum.total ?? 0),
-      todayOrders,
+      revenue: rangeRevenue,
+      revenueToday:Number(revenueToday._sum?.total??0),revenueWeek:Number(revenueWeek._sum?.total??0),revenueMonth:Number(revenueMonth._sum?.total??0),
+      averageOrderValue:rangeOrders.length?rangeRevenue/rangeOrders.length:0,newCustomers,pendingFulfilment,failedPayments,
+      comparisonPercent:previousRevenue?((rangeRevenue-previousRevenue)/previousRevenue)*100:rangeRevenue?100:0,
       lowStock,
+      lowStockCount,outOfStock,
+      orderTotals:Object.fromEntries(orderGroups.map(row=>[row.status,row._count._all])),
+      paymentMethods:paymentGroups.map(row=>({method:row.paymentMethod,orders:row._count._all,revenue:Number(row._sum.total??0)})),
+      revenueTrend:[...daily].map(([date,value])=>({date,value})).sort((a,b)=>a.date.localeCompare(b.date)),
+      recentOrders:recentOrders.map(order=>({...order,total:Number(order.total)})),
+      recentReturns:recentReturns.map(item=>({...item,refundAmount:Number(item.refundAmount??0)})),
+      range:{from:start,to:end},
     },
   });
 });
@@ -127,6 +158,7 @@ const productInput = z.object({
       }),
     )
     .min(1),
+  images: z.array(z.object({url:z.string().trim().min(1),alt:z.string().trim().max(150).nullable().optional(),position:z.number().int().min(0)})).default([]),
 });
 adminRouter.get('/products', async (_req, res) =>
   res.json({
@@ -139,23 +171,30 @@ adminRouter.get('/products', async (_req, res) =>
 );
 adminRouter.post('/products', async (req, res) => {
   const input = productInput.parse(req.body);
-  const { variants, ...product } = input;
+  const { variants, images, ...product } = input;
   res.status(201).json({
     success: true,
     data: await prisma.product.create({
-      data: dbData({ ...product, variants: { create: variants } }),
+      data: dbData({ ...product, variants: { create: variants }, images: {create: images} }),
       include: { variants: true, category: true },
     }),
   });
 });
 adminRouter.patch('/products/:id', async (req, res) => {
   const input = productInput.omit({ variants: true }).partial().parse(req.body);
+  const {images, ...product} = input;
+  if (images) {
+    await prisma.$transaction([
+      prisma.productImage.deleteMany({where:{productId:String(req.params.id)}}),
+      prisma.productImage.createMany({data:images.map(image=>({...image,alt:image.alt??null,productId:String(req.params.id)}))}),
+    ]);
+  }
   res.json({
     success: true,
     data: await prisma.product.update({
       where: { id: String(req.params.id) },
-      data: dbData(input),
-      include: { variants: true, category: true },
+      data: dbData(product),
+      include: { variants: true, category: true, images:true },
     }),
   });
 });

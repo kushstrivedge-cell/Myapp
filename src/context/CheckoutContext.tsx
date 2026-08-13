@@ -10,7 +10,7 @@ export type DeliveryAddress = {
 };
 
 export type ShippingMethod = 'standard' | 'express';
-export type PaymentMethod = 'upi' | 'card' | 'cod';
+export type PaymentMethod = 'razorpay' | 'cod';
 
 type CheckoutContextValue = {
   address: DeliveryAddress;
@@ -38,12 +38,12 @@ const CheckoutContext = createContext<CheckoutContextValue | undefined>(
 export function CheckoutProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState(emptyAddress);
   const [shipping, setShipping] = useState<ShippingMethod>('standard');
-  const [payment, setPayment] = useState<PaymentMethod>('upi');
+  const [payment, setPayment] = useState<PaymentMethod>('razorpay');
 
   const resetCheckout = () => {
     setAddress(emptyAddress);
     setShipping('standard');
-    setPayment('upi');
+    setPayment('razorpay');
   };
 
   return (

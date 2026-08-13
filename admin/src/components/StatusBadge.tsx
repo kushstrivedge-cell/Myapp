@@ -1,0 +1,1 @@
+export default function StatusBadge({value}:{value:unknown}){const status=String(value??'UNKNOWN');return <span className={`status-pill status-${status.toLowerCase().replaceAll('_','-')}`}>{status.replaceAll('_',' ')}</span>}

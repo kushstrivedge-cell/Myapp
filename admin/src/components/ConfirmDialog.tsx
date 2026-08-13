@@ -1,0 +1,2 @@
+import Button from './Button';import Modal from './Modal';
+export default function ConfirmDialog({title,message,onConfirm,onClose,busy=false}:{title:string;message:string;onConfirm:()=>void;onClose:()=>void;busy?:boolean}){return <Modal title={title} onClose={onClose}><p>{message}</p><div className="modal-actions"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button variant="danger" busy={busy} onClick={onConfirm}>Confirm</Button></div></Modal>}

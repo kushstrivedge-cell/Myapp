@@ -53,3 +53,7 @@ jest.mock('react-native-svg', () => {
     { get: (target, name) => target[name] ?? MockSvg },
   );
 });
+jest.mock('react-native-razorpay', () => ({
+  __esModule: true,
+  default: {open: jest.fn()},
+}));

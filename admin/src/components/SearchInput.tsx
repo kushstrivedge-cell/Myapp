@@ -1,0 +1,1 @@
+export default function SearchInput({value,onChange,placeholder='Search…'}:{value:string;onChange:(value:string)=>void;placeholder?:string}){return <input className="search" type="search" value={value} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/>}

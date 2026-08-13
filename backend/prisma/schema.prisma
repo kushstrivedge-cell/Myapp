@@ -222,8 +222,48 @@ model Order {
   items           OrderItem[]
   returns         ReturnRequest[]
   timeline        OrderStatusEvent[]
+  paymentAttempts PaymentAttempt[]
+  refunds         PaymentRefund[]
 
   @@index([userId, createdAt])
+}
+
+model PaymentAttempt {
+  id                String   @id @default(uuid())
+  orderId           String
+  idempotencyKey    String   @unique
+  provider          String   @default("RAZORPAY")
+  providerOrderId   String   @unique
+  providerPaymentId String?  @unique
+  status            String   @default("CREATED")
+  failureCode       String?
+  failureMessage    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model PaymentRefund {
+  id               String   @id @default(uuid())
+  orderId          String
+  idempotencyKey   String   @unique
+  providerRefundId String?  @unique
+  amount           Decimal  @db.Decimal(12, 2)
+  status           String   @default("PENDING")
+  reason           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model PaymentWebhookEvent {
+  id          String   @id
+  event       String
+  processedAt DateTime @default(now())
 }
 
 model OrderStatusEvent {

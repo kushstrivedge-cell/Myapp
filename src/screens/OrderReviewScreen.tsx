@@ -18,6 +18,9 @@ import { useOrders } from '../context/OrdersContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { RootStackParamList } from '../navigation/navigationTypes';
 import { ServerCart } from '../services/commerceApi';
+import RazorpayCheckout from 'react-native-razorpay';
+import {paymentApi, RazorpaySuccess} from '../services/paymentApi';
+import {useAuth} from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OrderReview'>;
 
@@ -37,6 +40,7 @@ function OrderReviewScreen({ navigation }: Props) {
   const { address, shipping, payment, resetCheckout } = useCheckout();
   const { createOrder } = useOrders();
   const { addNotification } = useNotifications();
+  const {user} = useAuth();
   const [quote, setQuote] = useState<ServerCart | null>(null);
   const [placing, setPlacing] = useState(false);
   const idempotencyKey = useRef(
@@ -45,8 +49,7 @@ function OrderReviewScreen({ navigation }: Props) {
   const shippingCost = quote?.shipping ?? 0;
   const total = quote?.total ?? 0;
   const paymentLabels = {
-    upi: 'UPI',
-    card: 'Credit or debit card',
+    razorpay: 'Razorpay Test Mode (demo)',
     cod: 'Cash on delivery',
   };
   const shippingLabels = {
@@ -96,6 +99,25 @@ function OrderReviewScreen({ navigation }: Props) {
       );
       setPlacing(false);
       return;
+    }
+    if (payment === 'razorpay') {
+      try {
+        const session = await paymentApi.initialize(order.databaseId, `payment-${idempotencyKey.current}`);
+        const result = await RazorpayCheckout.open({
+          key: session.keyId, order_id: session.providerOrderId,
+          amount: session.amount, currency: session.currency,
+          name: 'Cartly Demo', description: `Demo payment for ${order.id}`,
+          prefill: {name: user?.name ?? address.fullName, email: user?.email ?? '', contact: address.phone},
+          theme: {color: '#FFB000'}, notes: {cartly_order: order.id, demo: 'true'},
+        }) as RazorpaySuccess;
+        await paymentApi.verify(order.databaseId, result);
+      } catch (failure) {
+        const error = failure as {code?: string | number;description?: string;metadata?: {order_id?: string}};
+        await paymentApi.failed(order.databaseId, {razorpay_order_id:error.metadata?.order_id,code:String(error.code ?? 'CHECKOUT_CANCELLED'),description:error.description ?? 'Payment cancelled'}).catch(() => undefined);
+        Alert.alert('Demo payment not completed', `${error.description ?? 'Checkout was cancelled.'}\n\nNo money was charged. You can tap Retry payment.`);
+        setPlacing(false);
+        return;
+      }
     }
     addNotification(
       'Order confirmed',
@@ -234,7 +256,7 @@ function OrderReviewScreen({ navigation }: Props) {
           style={styles.button}
         >
           <Text style={styles.buttonText}>
-            {placing ? 'Validating…' : 'Place order'}
+            {placing ? 'Processing…' : payment === 'razorpay' ? 'Pay securely — Demo' : 'Place COD order'}
           </Text>
         </Pressable>
       </View>
