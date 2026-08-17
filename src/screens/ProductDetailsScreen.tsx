@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Alert,
+  ActivityIndicator,
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -24,7 +25,11 @@ import { RootStackParamList } from '../navigation/navigationTypes';
 import WishlistButton from '../../components/WishlistButton';
 import PlaceholderScreen from './PlaceholderScreen';
 import { AsyncStateView } from '../components/feedback/AsyncStateView';
-import { ProductReview, catalogueApi } from '../services/catalogueApi';
+import {
+  ProductReview,
+  ReviewSummary,
+  catalogueApi,
+} from '../services/catalogueApi';
 import ProductCard from '../../components/landingpage/ProductCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetails'>;
@@ -42,6 +47,16 @@ function ProductDetailsScreen({ navigation, route }: Props) {
     findProduct(route.params.productId),
   );
   const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({
+    average: 0,
+    total: 0,
+    distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+  });
+  const [reviewFormOpen, setReviewFormOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [related, setRelated] = useState<CatalogueProduct[]>([]);
   const [loading, setLoading] = useState(!product);
   const [loadError, setLoadError] = useState('');
@@ -68,6 +83,7 @@ function ProductDetailsScreen({ navigation, route }: Props) {
         if (!active) return;
         setProduct(loadedProduct);
         setReviews(reviewResult.items);
+        setReviewSummary(reviewResult.summary);
         setRelated(relatedProducts);
         setSelectedColour(
           loadedProduct.variants.find(variant => variant.colour)?.colour ??
@@ -218,6 +234,76 @@ function ProductDetailsScreen({ navigation, route }: Props) {
     }
     if (user) navigation.navigate('Checkout');
     else navigation.navigate('Login', { redirect: 'Checkout' });
+  };
+
+  const openReviewForm = () => {
+    if (!user) {
+      Alert.alert(
+        'Sign in to review',
+        'You need a Cartly account to write a customer review.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Sign in',
+            onPress: () =>
+              navigation.navigate('Login', { redirect: 'Account' }),
+          },
+        ],
+      );
+      return;
+    }
+    const existing = reviews.find(review => review.user.id === user.id);
+    setReviewRating(existing?.rating ?? 0);
+    setReviewTitle(existing?.title ?? '');
+    setReviewText(existing?.text ?? '');
+    setReviewFormOpen(true);
+  };
+
+  const submitReview = async () => {
+    if (!reviewRating) {
+      Alert.alert('Choose a rating', 'Select between 1 and 5 stars.');
+      return;
+    }
+    if (reviewTitle.trim().length < 3) {
+      Alert.alert(
+        'Add a headline',
+        'Use at least 3 characters for your review headline.',
+      );
+      return;
+    }
+    if (reviewText.trim().length < 10) {
+      Alert.alert(
+        'Tell us more',
+        'Write at least 10 characters about your experience.',
+      );
+      return;
+    }
+    setReviewSubmitting(true);
+    try {
+      await catalogueApi.saveReview(product.id, {
+        rating: reviewRating,
+        title: reviewTitle.trim(),
+        text: reviewText.trim(),
+      });
+      const [reviewResult, refreshedProduct] = await Promise.all([
+        catalogueApi.reviews(product.id, 1, 10),
+        catalogueApi.product(product.id),
+      ]);
+      setReviews(reviewResult.items);
+      setReviewSummary(reviewResult.summary);
+      setProduct(refreshedProduct);
+      setReviewFormOpen(false);
+      Alert.alert('Review submitted', 'Thank you for sharing your experience.');
+    } catch (reviewError) {
+      Alert.alert(
+        'Could not submit review',
+        reviewError instanceof Error
+          ? reviewError.message
+          : 'Please try again.',
+      );
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   return (
@@ -449,16 +535,126 @@ function ProductDetailsScreen({ navigation, route }: Props) {
         </View>
 
         <View style={[styles.section, styles.reviewSection]}>
-          <Text style={styles.sectionTitle}>Customer reviews</Text>
-          <View style={styles.reviewSummary}>
-            <Text style={styles.bigRating}>{product.rating}</Text>
+          <View style={styles.reviewHeading}>
             <View>
-              <Text style={styles.stars}>★★★★★</Text>
-              <Text style={styles.reviewCount}>
-                {product.reviews} verified ratings
+              <Text style={styles.sectionTitle}>Customer reviews</Text>
+              <Text style={styles.reviewSubtitle}>
+                Ratings and comments from Cartly customers
               </Text>
             </View>
+            <Pressable
+              onPress={openReviewForm}
+              style={styles.writeReviewButton}
+            >
+              <Text style={styles.writeReviewText}>
+                {reviews.some(review => review.user.id === user?.id)
+                  ? 'Edit review'
+                  : 'Write a review'}
+              </Text>
+            </Pressable>
           </View>
+          <View style={styles.reviewOverview}>
+            <View style={styles.reviewScore}>
+              <Text style={styles.bigRating}>
+                {reviewSummary.average.toFixed(1)}
+              </Text>
+              <Text style={styles.stars}>
+                {'★'.repeat(Math.round(reviewSummary.average))}
+                {'☆'.repeat(5 - Math.round(reviewSummary.average))}
+              </Text>
+              <Text style={styles.reviewTotal}>
+                {reviewSummary.total} global{' '}
+                {reviewSummary.total === 1 ? 'rating' : 'ratings'}
+              </Text>
+            </View>
+            <View style={styles.ratingBreakdown}>
+              {[5, 4, 3, 2, 1].map(rating => {
+                const count = reviewSummary.distribution[String(rating)] ?? 0;
+                const percent = reviewSummary.total
+                  ? (count / reviewSummary.total) * 100
+                  : 0;
+                return (
+                  <View key={rating} style={styles.ratingLine}>
+                    <Text style={styles.ratingLabel}>{rating} star</Text>
+                    <View style={styles.ratingTrack}>
+                      <View
+                        style={[styles.ratingFill, { width: `${percent}%` }]}
+                      />
+                    </View>
+                    <Text style={styles.ratingPercent}>
+                      {Math.round(percent)}%
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+          {reviewFormOpen && (
+            <View style={styles.reviewForm}>
+              <View style={styles.formHeading}>
+                <Text style={styles.formTitle}>Share your experience</Text>
+                <Pressable onPress={() => setReviewFormOpen(false)}>
+                  <Text style={styles.formClose}>×</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.formLabel}>Overall rating</Text>
+              <View style={styles.starPicker}>
+                {[1, 2, 3, 4, 5].map(rating => (
+                  <Pressable
+                    accessibilityLabel={`${rating} stars`}
+                    key={rating}
+                    onPress={() => setReviewRating(rating)}
+                  >
+                    <Text
+                      style={[
+                        styles.pickStar,
+                        rating <= reviewRating && styles.pickStarActive,
+                      ]}
+                    >
+                      ★
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.formLabel}>Add a headline</Text>
+              <TextInput
+                maxLength={100}
+                onChangeText={setReviewTitle}
+                placeholder="What’s most important to know?"
+                placeholderTextColor="#8A949B"
+                style={styles.reviewInput}
+                value={reviewTitle}
+              />
+              <Text style={styles.formLabel}>Write your review</Text>
+              <TextInput
+                maxLength={2000}
+                multiline
+                onChangeText={setReviewText}
+                placeholder="What did you like or dislike? How did you use this product?"
+                placeholderTextColor="#8A949B"
+                style={[styles.reviewInput, styles.reviewTextarea]}
+                textAlignVertical="top"
+                value={reviewText}
+              />
+              <Text style={styles.characterCount}>
+                {reviewText.length}/2000
+              </Text>
+              <Pressable
+                disabled={reviewSubmitting}
+                onPress={() => void submitReview()}
+                style={({ pressed }) => [
+                  styles.submitReviewButton,
+                  (pressed || reviewSubmitting) && styles.pressed,
+                ]}
+              >
+                {reviewSubmitting ? (
+                  <ActivityIndicator color="#101820" />
+                ) : (
+                  <Text style={styles.submitReviewText}>Submit review</Text>
+                )}
+              </Pressable>
+            </View>
+          )}
           {reviews.map(review => (
             <View key={review.id} style={styles.review}>
               <View style={styles.reviewerRow}>
@@ -466,7 +662,11 @@ function ProductDetailsScreen({ navigation, route }: Props) {
                   <Text style={styles.avatarText}>{review.user.name[0]}</Text>
                 </View>
                 <Text style={styles.reviewer}>{review.user.name}</Text>
-                <Text style={styles.verified}>Cartly customer</Text>
+                {review.verifiedPurchase ? (
+                  <Text style={styles.verified}>Verified purchase</Text>
+                ) : (
+                  <Text style={styles.customerBadge}>Cartly customer</Text>
+                )}
               </View>
               <Text style={styles.reviewStars}>
                 {'★'.repeat(review.rating)}
@@ -478,6 +678,14 @@ function ProductDetailsScreen({ navigation, route }: Props) {
               {review.text && (
                 <Text style={styles.reviewText}>{review.text}</Text>
               )}
+              <Text style={styles.reviewDate}>
+                Reviewed on{' '}
+                {new Date(review.createdAt).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </Text>
             </View>
           ))}
           {reviews.length === 0 && (
@@ -727,6 +935,108 @@ const styles = StyleSheet.create({
   },
   bullet: { color: '#56626B', fontSize: 11, lineHeight: 20 },
   reviewSection: { paddingBottom: 30 },
+  reviewHeading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  reviewSubtitle: { color: '#7A858D', fontSize: 10, marginTop: 4 },
+  writeReviewButton: {
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: '#C9D1D6',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  writeReviewText: { color: '#34414B', fontSize: 10, fontWeight: '900' },
+  reviewOverview: {
+    flexDirection: 'row',
+    gap: 18,
+    marginTop: 20,
+    paddingBottom: 18,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#DDE2E5',
+  },
+  reviewScore: { width: 105, alignItems: 'center', justifyContent: 'center' },
+  reviewTotal: {
+    color: '#78838C',
+    fontSize: 9,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  ratingBreakdown: { flex: 1, gap: 7 },
+  ratingLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  ratingLabel: { width: 34, color: '#59666F', fontSize: 9 },
+  ratingTrack: {
+    flex: 1,
+    height: 8,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: '#E8ECEF',
+  },
+  ratingFill: { height: 8, borderRadius: 4, backgroundColor: '#FFB000' },
+  ratingPercent: {
+    width: 27,
+    color: '#78838C',
+    fontSize: 9,
+    textAlign: 'right',
+  },
+  reviewForm: {
+    marginTop: 18,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#D9DFE3',
+    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+  },
+  formHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  formTitle: { color: '#101820', fontSize: 16, fontWeight: '900' },
+  formClose: { color: '#6F7B84', fontSize: 25, paddingHorizontal: 4 },
+  formLabel: {
+    color: '#43515B',
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: 14,
+    marginBottom: 7,
+  },
+  starPicker: { flexDirection: 'row', gap: 8 },
+  pickStar: { color: '#C5CDD2', fontSize: 34 },
+  pickStarActive: { color: '#FFB000' },
+  reviewInput: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: '#D3DADF',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    color: '#101820',
+    fontSize: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  reviewTextarea: { height: 110, lineHeight: 18 },
+  characterCount: {
+    color: '#8A949B',
+    fontSize: 9,
+    textAlign: 'right',
+    marginTop: 5,
+  },
+  submitReviewButton: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#FFB000',
+    marginTop: 15,
+  },
+  submitReviewText: { color: '#101820', fontSize: 11, fontWeight: '900' },
   reviewSummary: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -764,6 +1074,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginLeft: 'auto',
   },
+  customerBadge: {
+    color: '#78838C',
+    fontSize: 8,
+    fontWeight: '800',
+    marginLeft: 'auto',
+  },
   reviewStars: { color: '#FFB000', fontSize: 12, marginTop: 9 },
   reviewTitle: {
     color: '#26323B',
@@ -772,6 +1088,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   reviewText: { color: '#68747D', fontSize: 11, lineHeight: 17, marginTop: 4 },
+  reviewDate: { color: '#929BA2', fontSize: 8, marginTop: 9 },
   relatedProducts: { paddingTop: 14, paddingRight: 4 },
   purchaseBar: {
     flexDirection: 'row',
