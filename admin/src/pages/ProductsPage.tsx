@@ -365,6 +365,12 @@ export default function ProductsPage() {
             value={query}
             onChange={setQuery}
             placeholder="Search product, slug or SKU…"
+            suggestions={products.flatMap(product => [
+              product.name,
+              product.slug,
+              product.category.name,
+              ...product.variants.map(variant => variant.sku),
+            ])}
           />
           <select value={category} onChange={e => setCategory(e.target.value)}>
             <option value="all">All categories</option>

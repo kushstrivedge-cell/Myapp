@@ -1,6 +1,15 @@
 .shell {
   font-family: 'Segoe UI Variable', 'Segoe UI', Inter, system-ui, sans-serif;
 }
+body :is(input, select, textarea):focus,
+body :is(input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+body :is(button, a):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .shell > aside {
   min-height: 0;
   overflow: visible;
@@ -93,7 +102,7 @@ header p {
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid #34444f;
+  border: 1px solid transparent;
   border-radius: 50%;
   background: #182630;
   color: #c2ccd3;
@@ -101,9 +110,15 @@ header p {
   cursor: pointer;
 }
 .sidebar-collapse-icon:hover {
-  border-color: var(--brand);
+  border-color: transparent;
   background: #253640;
   color: #fff;
+}
+.sidebar-collapse-icon:focus-visible {
+  outline: none;
+  border-color: transparent;
+  box-shadow: none;
+  background: #253640;
 }
 @media (max-width: 900px) {
   .sidebar-collapse-icon {

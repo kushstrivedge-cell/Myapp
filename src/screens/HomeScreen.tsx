@@ -34,8 +34,10 @@ type Props = CompositeScreenProps<
 >;
 
 function HomeScreen({ navigation }: Props) {
-  const { addSearch } = useSearchHistory();
+  const { addSearch, history } = useSearchHistory();
   const {
+    products,
+    categories,
     error: catalogueError,
     loading: catalogueLoading,
     retry: retryCatalogue,
@@ -53,6 +55,14 @@ function HomeScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <Navbar
+        searchSuggestions={[
+          ...history,
+          ...products.map(product => product.name),
+          ...categories.flatMap(category => [
+            category.name,
+            ...category.children.map(child => child.name),
+          ]),
+        ]}
         onOpenAccount={() => navigation.navigate('Account')}
         onOpenAddresses={() =>
           rootNavigation?.navigate(user ? 'Addresses' : 'Login')

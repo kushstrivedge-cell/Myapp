@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -31,6 +31,7 @@ type NavbarProps = {
   onOpenCart: () => void;
   onOpenWishlist: () => void;
   onSelectCategory: (category: string) => void;
+  searchSuggestions?: string[];
 };
 
 function Navbar({
@@ -41,8 +42,10 @@ function Navbar({
   onOpenCart,
   onOpenWishlist,
   onSelectCategory,
+  searchSuggestions = [],
 }: NavbarProps) {
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const { itemCount } = useCart();
   const { count: wishlistCount } = useWishlist();
   const { user } = useAuth();
@@ -62,6 +65,25 @@ function Navbar({
     if (query) {
       onSearch(query);
     }
+  };
+  const suggestions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query || !searchFocused) return [];
+    return [
+      ...new Set(searchSuggestions.map(item => item.trim()).filter(Boolean)),
+    ]
+      .filter(item => item.toLowerCase().includes(query))
+      .sort(
+        (a, b) =>
+          Number(!a.toLowerCase().startsWith(query)) -
+          Number(!b.toLowerCase().startsWith(query)),
+      )
+      .slice(0, 6);
+  }, [search, searchFocused, searchSuggestions]);
+  const chooseSuggestion = (suggestion: string) => {
+    setSearch(suggestion);
+    setSearchFocused(false);
+    onSearch(suggestion);
   };
 
   return (
@@ -158,6 +180,8 @@ function Navbar({
           <TextInput
             accessibilityLabel="Search products"
             onChangeText={setSearch}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 120)}
             onSubmitEditing={submitSearch}
             placeholder="Search Cartly"
             placeholderTextColor="#727B84"
@@ -187,6 +211,25 @@ function Navbar({
             <Text style={styles.searchIcon}>⌕</Text>
           </Pressable>
         </View>
+        {suggestions.length > 0 && (
+          <View style={styles.suggestionMenu}>
+            {suggestions.map(suggestion => (
+              <Pressable
+                key={suggestion}
+                onPress={() => chooseSuggestion(suggestion)}
+                style={({ pressed }) => [
+                  styles.suggestionRow,
+                  pressed && styles.suggestionPressed,
+                ]}
+              >
+                <Text style={styles.suggestionSearch}>⌕</Text>
+                <Text numberOfLines={1} style={styles.suggestionLabel}>
+                  {suggestion}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -325,6 +368,33 @@ const styles = StyleSheet.create({
     fontSize: 29,
     fontWeight: '700',
     transform: [{ rotate: '-20deg' }],
+  },
+  suggestionMenu: {
+    marginTop: 5,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 9,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  suggestionRow: {
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E6E9',
+  },
+  suggestionPressed: { backgroundColor: '#F1F3F4' },
+  suggestionSearch: { width: 24, color: '#66737C', fontSize: 18 },
+  suggestionLabel: {
+    flex: 1,
+    color: '#25313A',
+    fontSize: 13,
+    fontWeight: '500',
   },
   categories: {
     backgroundColor: '#FFFFFF',
