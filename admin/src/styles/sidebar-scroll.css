@@ -1,0 +1,132 @@
+.shell {
+  font-family: 'Segoe UI Variable', 'Segoe UI', Inter, system-ui, sans-serif;
+}
+.shell > aside {
+  min-height: 0;
+  overflow: visible;
+}
+.sidebar-top,
+.sidebar-bottom {
+  flex: 0 0 auto;
+}
+.shell nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: calc(100% + 14px);
+  margin-left: -14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-left: 14px;
+  padding-right: 3px;
+  scrollbar-width: none;
+}
+.shell nav::-webkit-scrollbar {
+  display: none;
+}
+.shell nav a::before {
+  left: -14px;
+  width: 4px;
+  height: 28px;
+  border-radius: 0 5px 5px 0;
+}
+.shell nav a.active {
+  padding-left: 12px;
+}
+.shell nav a.active::before {
+  background: var(--brand);
+  box-shadow: none;
+}
+.nav-group-label {
+  padding: 10px 12px 6px;
+  color: #8d9aa4;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.55px;
+  text-transform: capitalize;
+}
+.admin-identity strong {
+  color: #f7f9fa;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.1px;
+}
+.admin-identity small {
+  color: #91a0aa;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+header h1,
+.section-head h2,
+section h2,
+.dashboard-toolbar h2 {
+  font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 720;
+  letter-spacing: -0.55px;
+}
+header p {
+  color: #b05a1b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.65px;
+}
+.dashboard-toolbar select {
+  font-size: 13px;
+  font-weight: 600;
+}
+.sidebar-collapsed nav a.active {
+  padding-inline: 0;
+}
+.sidebar-bottom {
+  display: grid;
+  gap: 10px;
+  margin-top: 0;
+  background: var(--nav);
+}
+.sidebar-collapse-icon {
+  position: absolute;
+  z-index: 3;
+  top: 31px;
+  right: -14px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #34444f;
+  border-radius: 50%;
+  background: #182630;
+  color: #c2ccd3;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
+  cursor: pointer;
+}
+.sidebar-collapse-icon:hover {
+  border-color: var(--brand);
+  background: #253640;
+  color: #fff;
+}
+@media (max-width: 900px) {
+  .sidebar-collapse-icon {
+    display: none;
+  }
+  .shell > aside {
+    overflow: hidden;
+  }
+}
+@media (max-height: 650px) {
+  .shell > aside {
+    padding-block: 12px;
+  }
+  .full-logo {
+    height: 44px;
+  }
+  .shell nav {
+    margin-top: 6px;
+  }
+  .nav-group {
+    margin-bottom: 8px;
+  }
+  .admin-identity {
+    height: 48px;
+  }
+}

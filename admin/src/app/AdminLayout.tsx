@@ -171,6 +171,14 @@ export default function AdminLayout({ onSignOut }: { onSignOut: () => void }) {
             </span>
           </NavLink>
           <button
+            className="sidebar-collapse-icon"
+            onClick={toggle}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
+          </button>
+          <button
             className="mobile-close"
             aria-label="Close navigation"
             onClick={() => setMobileOpen(false)}
@@ -207,20 +215,6 @@ export default function AdminLayout({ onSignOut }: { onSignOut: () => void }) {
           >
             <LogOut size={17} />
             <span className="nav-text">Sign out</span>
-          </button>
-          <button
-            className="collapse-button"
-            onClick={toggle}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? (
-              <ChevronRight size={17} />
-            ) : (
-              <>
-                <ChevronLeft size={17} />
-                <span>Collapse sidebar</span>
-              </>
-            )}
           </button>
         </div>
       </aside>
