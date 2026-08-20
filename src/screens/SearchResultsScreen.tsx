@@ -1,39 +1,80 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ActivityIndicator, FlatList, Pressable, StatusBar, StyleSheet, Text, TextInput, View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ProductCard from '../../components/landingpage/ProductCard';
-import {useSearchHistory} from '../context/SearchContext';
-import {useCatalogue} from '../context/CatalogueContext';
-import {CatalogueProduct} from '../data/products';
-import {RootStackParamList} from '../navigation/navigationTypes';
+import { useSearchHistory } from '../context/SearchContext';
+import { useCatalogue } from '../context/CatalogueContext';
+import { CatalogueProduct } from '../data/products';
+import { RootStackParamList } from '../navigation/navigationTypes';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SearchResults'>;
+type CategoryOption = { name: string; slug: string };
 
-function SearchResultsScreen({navigation, route}: Props) {
-  const [query, setQuery] = useState(route.params?.query ?? '');
-  const [submittedQuery, setSubmittedQuery] = useState(route.params?.query ?? '');
+function SearchResultsScreen({ navigation, route }: Props) {
+  const initialQuery = route.params?.query ?? '';
+  const [query, setQuery] = useState(initialQuery);
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [results, setResults] = useState<CatalogueProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
-  const {history, addSearch, removeSearch, clearHistory} = useSearchHistory();
-  const {products, listProducts} = useCatalogue();
+  const { history, addSearch, removeSearch, clearHistory } = useSearchHistory();
+  const { products, categories, listProducts } = useCatalogue();
+
+  const categoryOptions = useMemo<CategoryOption[]>(
+    () =>
+      categories.flatMap(category => [
+        { name: category.name, slug: category.slug },
+        ...category.children.map(child => ({
+          name: child.name,
+          slug: child.slug,
+        })),
+      ]),
+    [categories],
+  );
+  const selectedCategory = useMemo(() => {
+    const value = submittedQuery.trim().toLowerCase();
+    return categoryOptions.find(
+      category =>
+        category.name.toLowerCase() === value ||
+        category.slug.toLowerCase() === value,
+    );
+  }, [categoryOptions, submittedQuery]);
 
   useEffect(() => {
-    if (!submittedQuery.trim()) {
+    const search = submittedQuery.trim();
+    if (!search) {
       setResults([]);
       return;
     }
     let active = true;
     setLoading(true);
     setError('');
-    listProducts({q: submittedQuery.trim(), limit: 50})
+    listProducts(
+      selectedCategory
+        ? { category: selectedCategory.slug, limit: 50 }
+        : { q: search, limit: 50 },
+    )
       .then(result => {
         if (active) setResults(result.items);
       })
       .catch(requestError => {
-        if (active) setError(requestError instanceof Error ? requestError.message : 'Search failed.');
+        if (active)
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : 'Search failed.',
+          );
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -41,46 +82,105 @@ function SearchResultsScreen({navigation, route}: Props) {
     return () => {
       active = false;
     };
-  }, [listProducts, reloadKey, submittedQuery]);
+  }, [listProducts, reloadKey, selectedCategory, submittedQuery]);
 
   const suggestions = useMemo(() => {
-    const cleanQuery = query.trim().toLowerCase();
-    if (!cleanQuery || cleanQuery === submittedQuery.trim().toLowerCase()) return [];
-    return products
-      .filter(product => `${product.name} ${product.category}`.toLowerCase().includes(cleanQuery))
-      .slice(0, 5);
-  }, [products, query, submittedQuery]);
+    const value = query.trim().toLowerCase();
+    if (!value || value === submittedQuery.trim().toLowerCase()) return [];
+    const categoryMatches = categoryOptions
+      .filter(category => category.name.toLowerCase().includes(value))
+      .map(category => ({
+        key: `category-${category.slug}`,
+        label: category.name,
+        meta: 'Category',
+      }));
+    const productMatches = products
+      .filter(product =>
+        `${product.name} ${product.category} ${product.slug}`
+          .toLowerCase()
+          .includes(value),
+      )
+      .map(product => ({
+        key: `product-${product.id}`,
+        label: product.name,
+        meta: product.category,
+      }));
+    return [...categoryMatches, ...productMatches]
+      .sort(
+        (a, b) =>
+          Number(!a.label.toLowerCase().startsWith(value)) -
+          Number(!b.label.toLowerCase().startsWith(value)),
+      )
+      .slice(0, 7);
+  }, [categoryOptions, products, query, submittedQuery]);
 
   const runSearch = (nextQuery = query) => {
-    const cleanQuery = nextQuery.trim();
-    if (!cleanQuery) return;
-    setQuery(cleanQuery);
-    setSubmittedQuery(cleanQuery);
-    addSearch(cleanQuery);
-    navigation.setParams({query: cleanQuery});
+    const clean = nextQuery.trim();
+    if (!clean) return;
+    setQuery(clean);
+    setSubmittedQuery(clean);
+    addSearch(clean);
+    navigation.setParams({ query: clean });
+  };
+  const clearSearch = () => {
+    setQuery('');
+    setSubmittedQuery('');
+    setResults([]);
+    navigation.setParams({ query: undefined });
   };
 
-  const searchHeader = (
-    <View>
-      {suggestions.length > 0 && (
-        <View style={styles.suggestions}>
-          <Text style={styles.sectionTitle}>Suggestions</Text>
-          {suggestions.map(product => (
-            <Pressable key={product.id} onPress={() => runSearch(product.name)} style={styles.suggestion}>
-              <Text style={styles.suggestionIcon}>⌕</Text>
-              <Text numberOfLines={1} style={styles.suggestionText}>{product.name}</Text>
-            </Pressable>
-          ))}
+  const listHeader =
+    suggestions.length > 0 ? (
+      <View style={styles.suggestionsCard}>
+        <Text style={styles.suggestionTitle}>Search suggestions</Text>
+        {suggestions.map(suggestion => (
+          <Pressable
+            key={suggestion.key}
+            onPress={() => runSearch(suggestion.label)}
+            style={({ pressed }) => [
+              styles.suggestionRow,
+              pressed && styles.rowPressed,
+            ]}
+          >
+            <View style={styles.suggestionIcon}>
+              <Text style={styles.suggestionIconText}>⌕</Text>
+            </View>
+            <View style={styles.suggestionCopy}>
+              <Text numberOfLines={1} style={styles.suggestionText}>
+                {suggestion.label}
+              </Text>
+              <Text style={styles.suggestionMeta}>{suggestion.meta}</Text>
+            </View>
+            <Text style={styles.suggestionArrow}>›</Text>
+          </Pressable>
+        ))}
+      </View>
+    ) : submittedQuery ? (
+      <View style={styles.resultHeading}>
+        <View style={styles.resultEyebrowRow}>
+          <Text style={styles.resultEyebrow}>
+            {selectedCategory ? 'CATEGORY' : 'SEARCH RESULTS'}
+          </Text>
+          {selectedCategory && (
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>
+                {selectedCategory.name}
+              </Text>
+            </View>
+          )}
         </View>
-      )}
-      {submittedQuery.length > 0 && suggestions.length === 0 && (
-        <View style={styles.resultHeading}>
-          <Text style={styles.resultTitle}>Results for “{submittedQuery}”</Text>
-          <Text style={styles.resultCount}>{results.length} products</Text>
-        </View>
-      )}
-    </View>
-  );
+        <Text numberOfLines={2} style={styles.resultTitle}>
+          Results for “{submittedQuery}”
+        </Text>
+        <Text style={styles.resultCount}>
+          {loading
+            ? 'Finding the best matches…'
+            : `${results.length} ${
+                results.length === 1 ? 'product' : 'products'
+              } found`}
+        </Text>
+      </View>
+    ) : null;
 
   return (
     <SafeAreaView edges={['bottom']} style={styles.safeArea}>
@@ -89,44 +189,140 @@ function SearchResultsScreen({navigation, route}: Props) {
         <View style={styles.searchBar}>
           <Text style={styles.searchIcon}>⌕</Text>
           <TextInput
-            autoFocus={!route.params?.query}
+            autoFocus={!initialQuery}
+            accessibilityLabel="Search products and categories"
             onChangeText={setQuery}
             onSubmitEditing={() => runSearch()}
-            placeholder="Search Cartly"
-            placeholderTextColor="#7D878F"
+            placeholder="Search products and categories"
+            placeholderTextColor="#77828A"
             returnKeyType="search"
             style={styles.input}
             value={query}
           />
-          {query.length > 0 && <Pressable onPress={() => {setQuery(''); setSubmittedQuery('');}}><Text style={styles.clear}>×</Text></Pressable>}
+          {query.length > 0 && (
+            <Pressable
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+              onPress={clearSearch}
+            >
+              <Text style={styles.clear}>×</Text>
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityLabel="Submit search"
+            onPress={() => runSearch()}
+            style={({ pressed }) => [
+              styles.submitButton,
+              pressed && styles.submitPressed,
+            ]}
+          >
+            <Text style={styles.submitText}>Search</Text>
+          </Pressable>
         </View>
       </View>
 
       {!query && !submittedQuery ? (
-        <View style={styles.historyWrap}>
+        <View style={styles.historyCard}>
           <View style={styles.historyHeading}>
             <Text style={styles.historyTitle}>Recent searches</Text>
-            {history.length > 0 && <Pressable onPress={clearHistory}><Text style={styles.clearHistory}>Clear all</Text></Pressable>}
+            {history.length > 0 && (
+              <Pressable onPress={clearHistory}>
+                <Text style={styles.clearHistory}>Clear all</Text>
+              </Pressable>
+            )}
           </View>
           {history.length === 0 ? (
-            <View style={styles.noHistory}><Text style={styles.noHistoryTitle}>No recent searches</Text><Text style={styles.noHistoryCopy}>Your searches will appear here.</Text></View>
-          ) : history.map(item => (
-            <View key={item} style={styles.historyItem}>
-              <Pressable onPress={() => runSearch(item)} style={styles.historySearch}><Text style={styles.historyClock}>↺</Text><Text style={styles.historyText}>{item}</Text></Pressable>
-              <Pressable accessibilityLabel={`Remove ${item}`} onPress={() => removeSearch(item)}><Text style={styles.removeHistory}>×</Text></Pressable>
+            <View style={styles.noHistory}>
+              <Text style={styles.noHistoryIcon}>⌕</Text>
+              <Text style={styles.noHistoryTitle}>Start searching Cartly</Text>
+              <Text style={styles.noHistoryCopy}>
+                Products and categories you search for will appear here.
+              </Text>
             </View>
-          ))}
+          ) : (
+            history.map(item => (
+              <View key={item} style={styles.historyItem}>
+                <Pressable
+                  onPress={() => runSearch(item)}
+                  style={styles.historySearch}
+                >
+                  <Text style={styles.historyClock}>↺</Text>
+                  <Text style={styles.historyText}>{item}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel={`Remove ${item}`}
+                  onPress={() => removeSearch(item)}
+                >
+                  <Text style={styles.removeHistory}>×</Text>
+                </Pressable>
+              </View>
+            ))
+          )}
         </View>
       ) : (
         <FlatList
-          columnWrapperStyle={styles.row}
+          columnWrapperStyle={
+            results.length > 0 && suggestions.length === 0
+              ? styles.productRow
+              : undefined
+          }
           contentContainerStyle={styles.listContent}
           data={suggestions.length > 0 ? [] : results}
           keyExtractor={product => product.id}
-          ListEmptyComponent={suggestions.length === 0 ? loading ? <View style={styles.empty}><ActivityIndicator color="#D94F04" size="large" /><Text style={styles.emptyCopy}>Searching products…</Text></View> : error ? <View style={styles.empty}><Text style={styles.emptyTitle}>Search unavailable</Text><Text style={styles.emptyCopy}>{error}</Text><Pressable onPress={() => setReloadKey(value => value + 1)} style={styles.browseButton}><Text style={styles.browseText}>Try again</Text></Pressable></View> : <View style={styles.empty}><Text style={styles.emptySymbol}>?</Text><Text style={styles.emptyTitle}>Nothing matched your search</Text><Text style={styles.emptyCopy}>Check the spelling or try a broader term.</Text><Pressable onPress={() => navigation.navigate('MainTabs', {screen: 'Categories'})} style={styles.browseButton}><Text style={styles.browseText}>Browse all products</Text></Pressable></View> : null}
-          ListHeaderComponent={searchHeader}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            suggestions.length > 0 ? null : loading ? (
+              <View style={styles.stateCard}>
+                <ActivityIndicator color="#D94F04" size="large" />
+                <Text style={styles.stateTitle}>Searching Cartly</Text>
+                <Text style={styles.stateCopy}>
+                  Checking products and categories…
+                </Text>
+              </View>
+            ) : error ? (
+              <View style={styles.stateCard}>
+                <Text style={styles.stateIcon}>!</Text>
+                <Text style={styles.stateTitle}>Search is unavailable</Text>
+                <Text style={styles.stateCopy}>{error}</Text>
+                <Pressable
+                  onPress={() => setReloadKey(value => value + 1)}
+                  style={styles.primaryButton}
+                >
+                  <Text style={styles.primaryButtonText}>Try again</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.stateCard}>
+                <Text style={styles.stateIcon}>⌕</Text>
+                <Text style={styles.stateTitle}>No matching products</Text>
+                <Text style={styles.stateCopy}>
+                  {selectedCategory
+                    ? `There are currently no active products in ${selectedCategory.name}.`
+                    : 'Try a shorter product name, another category, or check the spelling.'}
+                </Text>
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('MainTabs', { screen: 'Categories' })
+                  }
+                  style={styles.primaryButton}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    Browse all products
+                  </Text>
+                </Pressable>
+              </View>
+            )
+          }
           numColumns={2}
-          renderItem={({item}) => <ProductCard onPress={() => navigation.navigate('ProductDetails', {productId: item.id})} product={item} />}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <ProductCard
+              onPress={() =>
+                navigation.navigate('ProductDetails', { productId: item.id })
+              }
+              product={item}
+            />
+          )}
         />
       )}
     </SafeAreaView>
@@ -134,17 +330,187 @@ function SearchResultsScreen({navigation, route}: Props) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#F5F6F8'}, searchWrap: {backgroundColor: '#101820', paddingHorizontal: 13, paddingBottom: 13},
-  searchBar: {height: 47, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 9, paddingHorizontal: 11}, searchIcon: {color: '#34414A', fontSize: 24, marginRight: 7},
-  input: {flex: 1, color: '#101820', fontSize: 13, paddingVertical: 0}, clear: {color: '#69747C', fontSize: 24, paddingHorizontal: 5},
-  listContent: {paddingBottom: 25}, row: {justifyContent: 'space-between', paddingHorizontal: 12}, suggestions: {backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingTop: 15, paddingBottom: 8, marginBottom: 10},
-  sectionTitle: {color: '#101820', fontSize: 14, fontWeight: '900', marginBottom: 7}, suggestion: {height: 44, flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E1E5E8'}, suggestionIcon: {color: '#7A858D', fontSize: 19, marginRight: 9}, suggestionText: {flex: 1, color: '#43505A', fontSize: 11},
-  resultHeading: {paddingHorizontal: 16, paddingVertical: 17}, resultTitle: {color: '#101820', fontSize: 17, fontWeight: '900'}, resultCount: {color: '#7A858D', fontSize: 10, marginTop: 4},
-  historyWrap: {backgroundColor: '#FFFFFF', paddingHorizontal: 17, paddingTop: 20}, historyHeading: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10}, historyTitle: {color: '#101820', fontSize: 17, fontWeight: '900'}, clearHistory: {color: '#D94F04', fontSize: 10, fontWeight: '800'},
-  historyItem: {height: 48, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E0E4E7'}, historySearch: {flex: 1, flexDirection: 'row', alignItems: 'center'}, historyClock: {color: '#89939A', fontSize: 17, marginRight: 10}, historyText: {color: '#43505A', fontSize: 12}, removeHistory: {color: '#8A949B', fontSize: 22, padding: 7},
-  noHistory: {alignItems: 'center', paddingTop: 70}, noHistoryTitle: {color: '#34414A', fontSize: 16, fontWeight: '900'}, noHistoryCopy: {color: '#89939A', fontSize: 10, marginTop: 5},
-  empty: {alignItems: 'center', paddingTop: 60, paddingHorizontal: 25}, emptySymbol: {width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFF0CE', color: '#A56700', fontSize: 22, fontWeight: '900', textAlign: 'center', textAlignVertical: 'center'}, emptyTitle: {color: '#101820', fontSize: 18, fontWeight: '900', marginTop: 15}, emptyCopy: {color: '#7A858D', fontSize: 11, marginTop: 5},
-  browseButton: {backgroundColor: '#101820', borderRadius: 8, paddingHorizontal: 17, paddingVertical: 12, marginTop: 18}, browseText: {color: '#FFFFFF', fontSize: 10, fontWeight: '900'},
+  safeArea: { flex: 1, backgroundColor: '#F3F5F7' },
+  searchWrap: {
+    backgroundColor: '#101820',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  searchBar: {
+    height: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingLeft: 14,
+    overflow: 'hidden',
+  },
+  searchIcon: { color: '#34434D', fontSize: 25, marginRight: 9 },
+  input: { flex: 1, color: '#101820', fontSize: 15, paddingVertical: 0 },
+  clear: { color: '#748089', fontSize: 25, paddingHorizontal: 9 },
+  submitButton: {
+    height: 54,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFB000',
+  },
+  submitPressed: { backgroundColor: '#E99F00' },
+  submitText: { color: '#101820', fontSize: 12, fontWeight: '900' },
+  listContent: { flexGrow: 1, paddingBottom: 28 },
+  productRow: { justifyContent: 'space-between', paddingHorizontal: 12 },
+  resultHeading: { paddingHorizontal: 17, paddingTop: 22, paddingBottom: 17 },
+  resultEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  resultEyebrow: {
+    color: '#B64C0A',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  categoryBadge: {
+    backgroundColor: '#FFF0D1',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  categoryBadgeText: { color: '#875700', fontSize: 9, fontWeight: '800' },
+  resultTitle: {
+    color: '#101820',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '900',
+    marginTop: 7,
+  },
+  resultCount: { color: '#76828A', fontSize: 12, marginTop: 5 },
+  suggestionsCard: {
+    margin: 12,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 13,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#DDE2E5',
+  },
+  suggestionTitle: {
+    color: '#101820',
+    fontSize: 13,
+    fontWeight: '900',
+    paddingHorizontal: 15,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+  suggestionRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E8EA',
+  },
+  rowPressed: { backgroundColor: '#F1F3F4' },
+  suggestionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1F3F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestionIconText: { color: '#43515B', fontSize: 18 },
+  suggestionCopy: { flex: 1, marginLeft: 11 },
+  suggestionText: { color: '#26333C', fontSize: 13, fontWeight: '700' },
+  suggestionMeta: { color: '#849099', fontSize: 10, marginTop: 2 },
+  suggestionArrow: { color: '#9AA4AA', fontSize: 24 },
+  historyCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingTop: 22,
+  },
+  historyHeading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  historyTitle: { color: '#101820', fontSize: 19, fontWeight: '900' },
+  clearHistory: { color: '#C34E08', fontSize: 11, fontWeight: '800' },
+  historyItem: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E1E5E8',
+  },
+  historySearch: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  historyClock: { color: '#89949C', fontSize: 18, marginRight: 11 },
+  historyText: { color: '#3D4A53', fontSize: 13 },
+  removeHistory: { color: '#87929A', fontSize: 22, padding: 8 },
+  noHistory: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 28 },
+  noHistoryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#EEF1F3',
+    color: '#52616B',
+    fontSize: 25,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+  noHistoryTitle: {
+    color: '#26333C',
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 16,
+  },
+  noHistoryCopy: {
+    color: '#7A868E',
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  stateCard: {
+    alignItems: 'center',
+    margin: 12,
+    paddingTop: 62,
+    paddingHorizontal: 30,
+  },
+  stateIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#FFF0CE',
+    color: '#A56700',
+    fontSize: 27,
+    fontWeight: '900',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+  stateTitle: {
+    color: '#101820',
+    fontSize: 20,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginTop: 17,
+  },
+  stateCopy: {
+    color: '#78848C',
+    fontSize: 12,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 7,
+  },
+  primaryButton: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#101820',
+    borderRadius: 10,
+    paddingHorizontal: 22,
+    marginTop: 20,
+  },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
 });
 
 export default SearchResultsScreen;

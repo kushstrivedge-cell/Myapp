@@ -11,7 +11,12 @@ import { ApiError, setUnauthorizedHandler } from '../services/apiClient';
 import { clearTokens, readTokens, saveTokens } from '../services/tokenStorage';
 import { accountApi } from '../services/accountApi';
 
-export type UserProfile = { name: string; email: string; phone: string };
+export type UserProfile = {
+  id?: string;
+  name: string;
+  email: string;
+  phone: string;
+};
 type Result = Promise<string | null>;
 
 type AuthContextValue = {
@@ -44,27 +49,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useState<UserProfile | null>(null);
 
   const restoreSession = useCallback(async () => {
-      setLoading(true);
-      setSessionError(null);
-      const stored = await readTokens();
-      if (!stored) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const payload = await authApi.refresh(stored.refreshToken);
-        await saveTokens(payload);
-        setUser(payload.user);
-      } catch (error) {
-        if (error instanceof ApiError && error.code === 'NETWORK_ERROR') {
-          setSessionError(error.message);
-        } else {
-          await clearTokens();
-          setUser(null);
-        }
-      }
+    setLoading(true);
+    setSessionError(null);
+    const stored = await readTokens();
+    if (!stored) {
       setLoading(false);
-    }, []);
+      return;
+    }
+    try {
+      const payload = await authApi.refresh(stored.refreshToken);
+      await saveTokens(payload);
+      setUser(payload.user);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'NETWORK_ERROR') {
+        setSessionError(error.message);
+      } else {
+        await clearTokens();
+        setUser(null);
+      }
+    }
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     restoreSession().catch(() => setLoading(false));
@@ -149,18 +154,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {}
     }
   };
-  const updateProfile = async (profile: Pick<UserProfile, 'name' | 'phone'>) => {
+  const updateProfile = async (
+    profile: Pick<UserProfile, 'name' | 'phone'>,
+  ) => {
     try {
       const updated = await accountApi.updateProfile(profile);
-      setUser({name: updated.name, email: updated.email, phone: updated.phone});
+      setUser({
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+      });
       return null;
     } catch (error) {
       return messageFrom(error);
     }
   };
-  const changePassword = async (currentPassword: string, newPassword: string) => {
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string,
+  ) => {
     try {
-      await accountApi.changePassword({currentPassword, newPassword});
+      await accountApi.changePassword({ currentPassword, newPassword });
       await clearTokens();
       setUser(null);
       return null;
