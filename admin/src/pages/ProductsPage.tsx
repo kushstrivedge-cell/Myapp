@@ -535,6 +535,7 @@ export default function ProductsPage() {
         <Drawer
           title={editing ? 'Edit product' : 'Create product'}
           onClose={close}
+          className="product-dialog"
         >
           <ProductForm
             form={form}

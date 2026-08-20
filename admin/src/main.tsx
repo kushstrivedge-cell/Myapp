@@ -6,6 +6,7 @@ import './styles/components.css';
 import './styles/responsive.css';
 import './styles/dashboard-products.css';
 import './styles/sidebar-scroll.css';
+import './styles/admin-upgrades.css';
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

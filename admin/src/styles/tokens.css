@@ -1,1 +1,39 @@
-:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#17212b;background:#f3f5f7;--brand:#ffb000;--brand-dark:#d94f04;--nav:#101820;--surface:#fff;--border:#e2e6e9;--muted:#6f7b84;--success:#16724d;--danger:#b7352c;--radius:12px;--shadow:0 16px 40px rgb(16 24 32 / 12%)}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button,a,select{transition:background-color 160ms,color 160ms,border-color 160ms,box-shadow 160ms,transform 100ms}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgb(255 176 0 / 35%);outline-offset:2px}
+:root {
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #17212b;
+  background: #f3f5f7;
+  --brand: #ffb000;
+  --brand-dark: #d94f04;
+  --nav: #101820;
+  --surface: #fff;
+  --border: #e2e6e9;
+  --muted: #6f7b84;
+  --success: #16724d;
+  --danger: #b7352c;
+  --radius: 12px;
+  --shadow: 0 16px 40px rgb(16 24 32 / 12%);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+select {
+  transition: background-color 160ms, color 160ms, border-color 160ms,
+    box-shadow 160ms, transform 100ms;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgb(255 176 0 / 35%);
+  outline-offset: 2px;
+}

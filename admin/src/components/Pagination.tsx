@@ -1,2 +1,32 @@
 import Button from './Button';
-export default function Pagination({page,pages,onChange}:{page:number;pages:number;onChange:(page:number)=>void}){return <div className="pagination"><Button variant="secondary" disabled={page<=1} onClick={()=>onChange(page-1)}>Previous</Button><span>Page {page} of {pages}</span><Button variant="secondary" disabled={page>=pages} onClick={()=>onChange(page+1)}>Next</Button></div>}
+export default function Pagination({
+  page,
+  pages,
+  onChange,
+}: {
+  page: number;
+  pages: number;
+  onChange: (page: number) => void;
+}) {
+  return (
+    <div className="pagination">
+      <Button
+        variant="secondary"
+        disabled={page <= 1}
+        onClick={() => onChange(page - 1)}
+      >
+        Previous
+      </Button>
+      <span>
+        Page {page} of {pages}
+      </span>
+      <Button
+        variant="secondary"
+        disabled={page >= pages}
+        onClick={() => onChange(page + 1)}
+      >
+        Next
+      </Button>
+    </div>
+  );
+}
